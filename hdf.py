@@ -4,6 +4,8 @@ from __future__ import with_statement
 import h5py
 import cPickle as pickle
 import os
+import sys
+import logging
 from numpy import ndarray
 
 class hdf5:
@@ -15,8 +17,12 @@ class hdf5:
     def __init__(self, projectname):
         self.name = projectname
         self.filename = projectname + '.hdf5'
+        logging.basicConfig( format='%(asctime)s %(levelname)s\
+                %(message)s',level=logging.DEBUG)
+        logging.info('Creating file:' + self.filename)
         with h5py.File(self.filename, 'w') as f:
             f.attrs['functions'] = pickle.dumps([]) # No functions yet
+            logging.info('Created file:' + self.filename)
 
     def create_dataset(self, dset_name, *dimensions):
         ''' Creates the mapping, pickles it and then creates a hdf5 
@@ -29,15 +35,19 @@ class hdf5:
         dims = []
         for k, v in dimensions:
             dims.append(len(v))
+        logging.info('Creating dataset: ' + dset_name)
         with h5py.File(self.filename, 'a') as f:
             dset = f.create_dataset(dset_name, dims)
             dset.attrs['mapping'] = pickle.dumps(mapping)
             dset.attrs['dirty'] = True
+            logging.info('Dataset created.')
     
     def set_dataset(self, dset_name, data):
+        logging.info('Setting data in: ' + dset_name)
         with h5py.File(self.filename) as f:
             f.get(dset_name)[...] = data
             f.get(dset_name).attrs['dirty'] = True
+            logging.info('Data set.')
        
     def index(self, key, value, dset_name):
         ''' Returns the mapped index of the key within the hdf data
@@ -130,23 +140,23 @@ class hdf5:
 
     def execute_function(self, function):
         ''' Executes a function and set the output dataset status to dirty.
-        
+
         '''
-        import os.path
-        import os
+#TODO make me work for non python functions
         import sys
-        path = os.path.join(os.getcwd(), *function.name.split('/')[:-1])
-        sys.path.append(path)
-        import_func = function.name.split('/')[-1].split('.')[0]
-        func_class = __import__(import_func)
+        logging.info('Importing the function: %s' % function)
+        __import__(function.name)
+        func_class = sys.modules[function.name]
         with h5py.File(self.filename, 'a') as f:
             input_cubes = []
             for input_cube_name in function.input_dsets:
                 input_cubes.append(f.get(input_cube_name))
             output_cubes = []
+            logging.info('Executing the function: %s' % function)
             func_class.function(input_cubes, function.output_dsets,
                     function.params)
             for output_cube_name in output_cubes:
+                logging.info('Set the dirty status for the output datasets')
                 f.get(output_cube_name).attrs['dirty'] = True
 
     def recompute(self):
@@ -156,13 +166,16 @@ class hdf5:
         '''
         dirty_funcs = []
         with h5py.File(self.filename, 'r') as f:
+            logging.info('Collecting all functions containing dirty datasets')
             for func in self.get_functions():
                 for dset in func.input_dsets:
                     if f.get(dset).attrs['dirty']:
                         dirty_funcs.append(func)
         for func in set(dirty_funcs):
+            logging.info('Execute all functions with dirty datasets')
             self.execute_function(func)
         with h5py.File(self.filename, 'a') as f:
+            logging.info('Remove the dirty state from alle datasets')
             for func in dirty_funcs:
                 for dset in func.input_dsets:
                     f.get(dset).attrs['dirty'] = False
