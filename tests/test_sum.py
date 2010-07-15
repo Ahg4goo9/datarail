@@ -1,7 +1,8 @@
 from __future__ import with_statement
-from hdf import Hdf5, Function
+from hdf import Hdf5
 from decimal import Decimal as d
 from numpy import arange, array
+from sum import Sum
 import os
 import os.path
 
@@ -37,7 +38,7 @@ def pytest_funcarg__hdf_project(request):
     return hdf
 
 def test_two_cubes(hdf_project):
-    my_sum = Function('python.test.sum', [], ['2D_1', '2D_2'], ['sum'])
+    my_sum = Sum('python.test.sum', [], ['2D_1', '2D_2'], ['sum'])
     hdf_project.add_function(my_sum)
     hdf_project.recompute()
     data = hdf_project.get_data('sum', items={})
@@ -69,7 +70,7 @@ def test_four_cubes(hdf_project):
     hdf.set_dataset(two_d_name_4, {'x':d('10'), 'y':d('10')},
             array(1).reshape((1,1)))
 
-    my_sum = Function('python.test.sum', [], ['2D_1', '2D_2', '2D_3', '2D_4'],
+    my_sum = Sum('python.test.sum', [], ['2D_1', '2D_2', '2D_3', '2D_4'],
             ['sum'])
     hdf.add_function(my_sum)
     hdf.recompute()

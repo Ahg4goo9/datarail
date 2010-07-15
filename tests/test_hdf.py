@@ -1,7 +1,8 @@
 from __future__ import with_statement
 from numpy import random, arange, array, NaN, isnan
 import h5py
-from hdf import Hdf5, Function
+from hdf import Hdf5
+from sum import Sum
 from decimal import Decimal as d
 import os
 import os.path
@@ -130,7 +131,7 @@ def test_get_data_fill_with_nan():
         expected))
 
 def pytest_funcarg__function(request):
-    my_sum = Function('python.test.sum', [], ['Project Data', 'ds'], ['sum'])
+    my_sum = Sum('python.test.sum', [], ['Project Data', 'ds'], ['sum'])
     return my_sum
 
 def test_add(hdf_project, function):

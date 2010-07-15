@@ -51,7 +51,7 @@ class Hdf5:
             raise ValueError('Dimension must not be empty')
 
         group_mapping = dict((k, i) for i, (k, v) in enumerate(dimensions))
-        dset_mapping = dict(([i, v]) for i, (k, v) in enumerate(dimensions))
+        dset_mapping = dict([i, v] for i, (k, v) in enumerate(dimensions))
         dims = [len(value) for key, value in dimensions]
 
         with h5py.File(self.filename, 'a') as h5_file:
@@ -161,14 +161,14 @@ class Hdf5:
             grp.attrs['dirty'] = True
             logging.info('Data set.')
     
-    def index(self, key, value, dset):
-        ''' Returns the mapped index of the key within the hdf data
-        cube and the index of the value within that.
+    def index(self, dimension_index, index_label, dset):
+        ''' Returns the mapped index of the index_label within the hdf 
+        data cube and the index of the value within that.
         
         '''
-        mapping = self.read_mapping(dset)
-        if value in mapping[key]:
-            return mapping[key].index(value)
+        mapping = pickle.loads(str(dset.attrs['mapping']))
+        if index_label in mapping[dimension_index]:
+            return mapping[dimension_index].index(index_label)
         return -1
 
     def read_mapping(self, h5_element):
@@ -203,20 +203,20 @@ class Hdf5:
             indices_list.append([reverse_grp_map[i], indices[i]])
         return indices_list 
     
-    def first_indices(self, dset, items):
+    def first_index_labels(self, dset, items):
         ''' Get the 'first' point of a given dataset.
         Return them as a list compatible with create_dataset.
 
         '''
-        first_indices = {}
+        first_index_labels = {}
         mapping = self.read_mapping(dset)
         group_mapping = self.read_mapping(dset.parent)
         for key, value in items.items():
             mapping[group_mapping[key]] = [value]
         reverse_grp_map = dict((v, k) for k, v in group_mapping.iteritems())
         for key, value in mapping.items():
-            first_indices[reverse_grp_map[key]] = value[0]
-        return first_indices
+            first_index_labels[reverse_grp_map[key]] = value[0]
+        return first_index_labels
 
    
     def get_data_fill_with_nan(self, group_name, items):
@@ -268,9 +268,9 @@ class Hdf5:
                 shape = dataset.shape
                 data.append(dataset[...])
                 inds.append([slice(None, None, None)] * len(shape))
-                first_inds.append(self.first_indices(dataset, items))
+                first_inds.append(self.first_index_labels(dataset, items))
                 for key, value in items.iteritems():
-                    inds[len(inds) - 1][grp_map[key]] =\
+                    inds[-1][grp_map[key]] = \
                             self.index(grp_map[key], value, dataset)
 
             #prevent interation over something you delete stuff from
@@ -327,17 +327,29 @@ class Hdf5:
 
         '''
 #TODO make me work for non python functions
-        import sys
+        #import sys
+        #logging.info('Importing the function: %s' % func)
+        #__import__(func.name)
+        #func_class = sys.modules[func.name]
+        #with h5py.File(self.filename, 'a') as h5_file:
+        #    input_cubes = []
+        #    for input_cube_name in func.input_cubes:
+        #        input_cubes.append(h5_file[input_cube_name])
+        #    output_cubes = []
+        #    logging.info('Executing the function: %s' % func)
+        #    func_class.function(input_cubes, func.output_cubes,
+        #            func.params)
+        #    for output_cube_name in output_cubes:
+        #        logging.info('Set the dirty status for the output datasets')
+        #        h5_file[output_cube_name].attrs['dirty'] = True
         logging.info('Importing the function: %s' % func)
-        __import__(func.name)
-        func_class = sys.modules[func.name]
         with h5py.File(self.filename, 'a') as h5_file:
             input_cubes = []
             for input_cube_name in func.input_cubes:
                 input_cubes.append(h5_file[input_cube_name])
             output_cubes = []
             logging.info('Executing the function: %s' % func)
-            func_class.function(input_cubes, func.output_cubes,
+            func.__call__(input_cubes, func.output_cubes,
                     func.params)
             for output_cube_name in output_cubes:
                 logging.info('Set the dirty status for the output datasets')
@@ -420,24 +432,3 @@ if __name__ == '__main__':
     hdf.set_dataset(two_d_name, {'x':d('10'), 'y':d('10')},
             5*arange(1*1).reshape((1,1)))
     '''
-
-class Function:
-    ''' Class that holds all necessary parametes for a function
-
-    '''
-    def __init__(self, name, params, input_cubes, output_cubes):
-        '''
-        The name should be the relative path to hdf.py
-        It also executes the function.
-
-        '''
-        self.name = name
-        self.params = params
-        self.input_cubes = input_cubes
-        self.output_cubes = output_cubes
-
-    def __str__(self):
-        output = {self.name: [self.params, self.input_cubes,
-            self.output_cubes]}
-        return str(output)
-
