@@ -1,4 +1,3 @@
-from __future__ import with_statement
 from hdf import Hdf5
 from create_subcube import Create_subcube
 from decimal import Decimal as d
@@ -49,7 +48,7 @@ def test_create_subcube_range_and_non_range(hdf_project):
     cubes = hdf_project.get_data('subcube1', items={})
     expected = [array([[0, 4, 8, 12]]), array([[3, 7, 11, 15]])]
     for array1, array2 in zip(cubes, expected):
-        assert all((x == y) for x,y in zip(array1.flat, array2.flat))
+        assert all((x == y) for x, y in zip(array1.flat, array2.flat))
 
 def test_create_subcube_range_and_range(hdf_project):
     hdf = hdf_project
@@ -62,7 +61,7 @@ def test_create_subcube_range_and_range(hdf_project):
     cubes = hdf_project.get_data('subcube2', items={})
     expected = [array([[4, 5, 6], [8, 9, 10], [12, 13, 14]])]
     for array1, array2 in zip(cubes, expected):
-        assert all((x == y) for x,y in zip(array1.flat, array2.flat))
+        assert all((x == y) for x, y in zip(array1.flat, array2.flat))
 
 def test_create_subecube_mixed_range_and_non_range(hdf_project):
     hdf = hdf_project
@@ -76,7 +75,7 @@ def test_create_subecube_mixed_range_and_non_range(hdf_project):
     cubes = hdf_project.get_data('subcube3', items={})
     expected = [array([[4, 5, 6], [8, 9, 10], [12, 13, 14]]), array([[1]])]
     for array1, array2 in zip(cubes, expected):
-        assert all((x == y) for x,y in zip(array1.flat, array2.flat))
+        assert all((x == y) for x, y in zip(array1.flat, array2.flat))
     #
     #my_create_subcube4 = Create_subcube('python.test.create_subcube',
     #    [{'x':[d('1')]}], ['3D_1'], ['subcube4'])
@@ -88,5 +87,5 @@ def test_create_subecube_mixed_range_and_non_range(hdf_project):
     #expected = [array([[1]]), array([[0]]), array([[6]]), array([[8]]),
     #        array([[14]]), array([[24]]), array([[30]])] 
     #for array1, array2 in zip(cubes, expected):
-    #    assert all((x == y) for x,y in zip(array1.flat, array2.flat))
+    #    assert all((x == y) for x, y in zip(array1.flat, array2.flat))
 

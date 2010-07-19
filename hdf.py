@@ -245,7 +245,7 @@ class Hdf5:
         self.delete_dataset(tmp_name)
         return ret_data
     
-    def get_data(self, group_name, items):
+    def get_data(self, group_name, items = {}):
         ''' Get the data for the group and the specfied item.
         The data is stored in a list of numpy ndarrays.
 

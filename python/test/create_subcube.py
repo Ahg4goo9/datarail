@@ -22,10 +22,13 @@ class Create_subcube(function.Function):
             items = params[0]
         in_group = input_cubes[0]
         in_group_mapping = pickle.loads(str(in_group.attrs['mapping'])) 
+        logging.info('Get splitted data')
         data, indices = function.get_data_and_indices(in_group, items)
 
+        logging.info('Create new group')
         group = in_group.parent.create_group(output_cubes[0])
         group.attrs['mapping'] = pickle.dumps(in_group_mapping)
+        logging.info('Create new datasets')
         for i in xrange(len(data)):
             if data[i] == []:
                 continue
@@ -35,4 +38,6 @@ class Create_subcube(function.Function):
             ds[...] = data[i][...]
             dset_mapping = indices[i]
             ds.attrs['mapping'] = pickle.dumps(dset_mapping)
+
+        logging.info('Subcubes created.')
 

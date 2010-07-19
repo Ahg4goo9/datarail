@@ -4,15 +4,15 @@
 '''
 import pickle
 
-def first_index_labels(dset, items):
+def get_first_index_labels(dset, items):
     ''' Get the 'first' index_labels of a given dataset (index 0 for every
     dimension)
     Return them as a list compatible with create_dataset.
 
     '''
     index_labels = {}
-    mapping = pickle.loads(str(dset.attrs['mapping']))
-    group_mapping = pickle.loads(str(dset.parent.attrs['mapping']))
+    mapping = get_mapping(dset)
+    group_mapping = get_mapping(dset.parent)
     for key, value in items.items():
         mapping[group_mapping[key]] = [value]
     reverse_grp_map = dict((v, k) for k, v in group_mapping.iteritems())
@@ -25,7 +25,7 @@ def get_index(dimension_index, index_label, dset):
     data cube and the index of the value within that.
     
     '''
-    mapping = pickle.loads(str(dset.attrs['mapping']))
+    mapping = get_mapping(dset)
     if index_label in mapping[dimension_index]:
         return mapping[dimension_index].index(index_label)
     return -1
@@ -35,8 +35,7 @@ def get_index_label(dimension_index, index, dset):
     of the dataset mapping.
     
     '''
-    mapping = pickle.loads(str(dset.attrs['mapping']))
-    return mapping[dimension_index][index]
+    return get_mapping(dset)[dimension_index][index]
 
 def get_combinations(to_be_combined):
     '''Returns all possible combinations of the elments in the 
@@ -48,6 +47,19 @@ def get_combinations(to_be_combined):
         combinations = [i + [{key: y}] for y in to_be_combined[key] for i in
                 combinations]
     return combinations
+
+def get_mapping(h5_elem):
+    '''Get and return the mapping of the h5 element
+
+    '''
+    return pickle.loads(str(h5_elem.attrs['mapping']))
+
+def compare(dict1, dict2):
+    ''' Compare two dictionaries and return the keys where the values are not
+    equal.
+
+    '''
+    return [k for k in dict1 if dict1[k] != dict2[k]]
 
 def get_indices_and_labels(grp_map, dataset, items):
     ''' Get all indices and labels
@@ -64,7 +76,7 @@ def get_indices_and_labels(grp_map, dataset, items):
         for key, value in comb.items():
             dim_index = grp_map[key]
             dim_labels[-1][dim_index] = list()
-            if type(value) == tuple: # range of index_labels
+            if type(value) == tuple and len(value) == 2: # range of index_labels
                 start = get_index(dim_index, value[0], dataset)
                 end = get_index(dim_index, value[1], dataset)
                 if start != -1 and end != -1:
@@ -97,7 +109,7 @@ def get_data_and_indices(group, items):
     data = list()
     inds = list()
     dim_labels = list()
-    grp_map = pickle.loads(str(group.attrs['mapping']))
+    grp_map = get_mapping(group)
     for dataset in group.values():
         data.append(dataset[...])
         one, two = get_indices_and_labels(grp_map, dataset, items)

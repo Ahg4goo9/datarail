@@ -41,7 +41,7 @@ def test_two_cubes(hdf_project):
     my_sum = Sum('python.test.sum', [], ['2D_1', '2D_2'], ['sum'])
     hdf_project.add_function(my_sum)
     hdf_project.recompute()
-    data = hdf_project.get_data('sum', items={})
+    data = hdf_project.get_data('sum')
     expected = [array([[0, 2, 4, 6], [8, 10, 12, 14],[16, 18, 20, 22], [24,
         26, 28, 30]]), array([[2]])]
     for array1, array2 in zip(data, expected):
