@@ -58,7 +58,7 @@ class Hdf5:
             logging.info('Load group: %s' % dset_name)
             try:
                 grp = h5_file[dset_name]
-                if not group_mapping == self.read_mapping(grp):
+                if not group_mapping == self.get_mapping(grp):
                     logging.error('The dimensions of the new and the old'
                             'dataset must be the same')
                     raise ValueError('The dimensions of the new and the old'
@@ -77,7 +77,7 @@ class Hdf5:
                     raise ValueError('The dataset has the wrong number of'
                     'dimensions')
                 for key in grp.keys():
-                    mapping = self.read_mapping(grp[key])
+                    mapping = self.get_mapping(grp[key])
                     share_points = True
                     for key in mapping:
                         if not [x for x in mapping[key] if x in
@@ -171,11 +171,16 @@ class Hdf5:
             return mapping[dimension_index].index(index_label)
         return -1
 
-    def read_mapping(self, h5_element):
+    def get_mapping(self, h5_element):
         ''' Returns the mapping of the element
 
         '''
-        return pickle.loads(str(h5_element.attrs['mapping']))
+        try:
+            return pickle.loads(str(h5_element.attrs['mapping']))
+        except AttributeError:
+            with h5py.File(self.filename,'r') as h5_file:
+                return pickle.loads(str(h5_file[h5_element].attrs['mapping']))
+
 
     def get_all_possible_indices(self, group_name):
         '''Get all indices from all different datasets within the group.
@@ -184,10 +189,10 @@ class Hdf5:
         '''
         with h5py.File(self.filename,'r') as h5_file:
             grp = h5_file[group_name]
-            grp_mapping = self.read_mapping(grp)
+            grp_mapping = self.get_mapping(grp)
             indices = dict.fromkeys(grp_mapping.values())
             for dset in grp.values():
-                mapping = self.read_mapping(dset)
+                mapping = self.get_mapping(dset)
                 for index, values in mapping.items():
                     for value in values:
                         try:
@@ -209,8 +214,8 @@ class Hdf5:
 
         '''
         first_index_labels = {}
-        mapping = self.read_mapping(dset)
-        group_mapping = self.read_mapping(dset.parent)
+        mapping = self.get_mapping(dset)
+        group_mapping = self.get_mapping(dset.parent)
         for key, value in items.items():
             mapping[group_mapping[key]] = [value]
         reverse_grp_map = dict((v, k) for k, v in group_mapping.iteritems())
@@ -263,7 +268,7 @@ class Hdf5:
             first_inds = []
 
             grp = hdf5_file[group_name]
-            grp_map = self.read_mapping(grp)
+            grp_map = self.get_mapping(grp)
             for dataset in grp.values():
                 shape = dataset.shape
                 data.append(dataset[...])
@@ -327,21 +332,6 @@ class Hdf5:
 
         '''
 #TODO make me work for non python functions
-        #import sys
-        #logging.info('Importing the function: %s' % func)
-        #__import__(func.name)
-        #func_class = sys.modules[func.name]
-        #with h5py.File(self.filename, 'a') as h5_file:
-        #    input_cubes = []
-        #    for input_cube_name in func.input_cubes:
-        #        input_cubes.append(h5_file[input_cube_name])
-        #    output_cubes = []
-        #    logging.info('Executing the function: %s' % func)
-        #    func_class.function(input_cubes, func.output_cubes,
-        #            func.params)
-        #    for output_cube_name in output_cubes:
-        #        logging.info('Set the dirty status for the output datasets')
-        #        h5_file[output_cube_name].attrs['dirty'] = True
         logging.info('Importing the function: %s' % func)
         with h5py.File(self.filename, 'a') as h5_file:
             input_cubes = []

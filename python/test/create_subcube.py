@@ -28,7 +28,7 @@ class Create_subcube(function.Function):
         logging.info('Create new group')
         group = in_group.parent.create_group(output_cubes[0])
         group.attrs['mapping'] = pickle.dumps(in_group_mapping)
-        logging.info('Create new datasets')
+        logging.debug('Create new datasets')
         for i in xrange(len(data)):
             if data[i] == []:
                 continue
@@ -39,5 +39,5 @@ class Create_subcube(function.Function):
             dset_mapping = indices[i]
             ds.attrs['mapping'] = pickle.dumps(dset_mapping)
 
-        logging.info('Subcubes created.')
+        logging.debug('Subcubes created.')
 

@@ -11,13 +11,18 @@ def join_cubes(out_cube, cubes):
     '''
     while len(cubes) > 1:
         #common elements
+        logging.info('Joining cubes: %s and %s' % (cubes[-1].name,
+            cubes[-2].name))
         for i, (ds1, ds2) in enumerate(zip(cubes[-2].values(),
             cubes[-1].values())):
+            logging.debug('Concatenating datasets: %s and %s' % (ds1.name,
+                ds2.name))
             ds1_map = function.get_mapping(ds1)
             ds2_map = function.get_mapping(ds2)
             keys = function.compare(ds1_map, ds2_map)
             if not len(keys) == 1:
-                logging.error('Only one dimension can be different.')
+                logging.error('Only one dimension can be different. Different'
+                        ' dimensions are %s' % keys)
                 raise ValueError
             key = keys[0]
             outmap = ds1_map
@@ -47,8 +52,6 @@ def join_cubes(out_cube, cubes):
         cubes.pop()
     for combination in set(combinations(cubes[0].values(), 2)):
         cube1, cube2 = combination
-        print cube1
-        print cube2
         merge(cube1, cube2)
 
 def merge(dataset1, dataset2):
@@ -58,33 +61,36 @@ def merge(dataset1, dataset2):
     ds1_map = function.get_mapping(dataset1)
     ds2_map = function.get_mapping(dataset2)
     keys = function.compare(ds1_map, ds2_map)
-    print 'ds1_map: ', ds1_map
-    print 'ds2_map: ', ds2_map
-    print keys
     if not len(keys) == 1:
-        logging.info('Only one dimension can be different. Did not merge')
+        logging.warning('Only one dimension can be different. Did not merge')
         return
+    logging.info('Merging datasets: %s and %s' % (dataset1.name,
+        dataset2.name))
     key = keys[0]
     outmap = ds1_map
     for value in ds2_map[key]:
         outmap[key].append(value)
     combined_data = concatenate((dataset1[...], dataset2[...]), key)
-    #try:
-    #    del out_cube[str(i)]
-    #except KeyError:
-    #    pass
-
-    ds = dataset1.parent.create_dataset('tmp', shape=combined_data.shape,
-            dtype=dataset1.dtype)
-    import pdb
-    pdb.set_trace()
+    
+    # copy doesn't work (because of changed shape)
+    group = dataset1.parent
+    name = dataset1.name
+    dtype = dataset1.dtype
+    attrs = dataset1.attrs.items()
+    del group[dataset1.name]
+    ds = group.create_dataset(name, shape=combined_data.shape,
+            dtype=dtype)
     ds[...] = combined_data
-    for key, value in dataset1.attrs.items():
+    for key, value in attrs:
         ds.attrs[key] = value
     ds.attrs['mapping'] = pickle.dumps(outmap)
+    del group[dataset2.name]
 
 class JoinCubes(function.Function):
-    ''' This function joins several cubes into one
+    ''' This function joins several cubes into one.
+    It will try to merge the datasets if it is possible (only one 
+    dimension has different index labels (and those labels must _not_
+    overlap).
 
     '''
     def __call__(self, input_cubes, output_cubes, params):
