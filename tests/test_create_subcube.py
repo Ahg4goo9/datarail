@@ -7,8 +7,8 @@ import os.path
 
 def pytest_funcarg__hdf_project(request):
     ''' Set up a project, create two datasets with alike dimensions (4x4
-    (filled with the numbers from 1 to 4x4 = 16) and 1x1(filled with the number
-    1))
+    (filled with the numbers from 0 to 4x4 = 15) and 1x1(filled with the number
+    0))
 
     '''
     if os.path.exists('subcube.hdf5'):

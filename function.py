@@ -133,7 +133,7 @@ class Function:
     ''' Class that holds all necessary parametes for a function
 
     '''
-    def __init__(self, name, params, input_cubes, output_cubes):
+    def __init__(self, name, params, input_cube_names, output_cube_names):
         '''
         The name should be the relative path to hdf.py
         It also executes the function.
@@ -141,12 +141,12 @@ class Function:
         '''
         self.name = name
         self.params = params
-        self.input_cubes = input_cubes
-        self.output_cubes = output_cubes
+        self.input_cube_names = input_cube_names
+        self.output_cube_names = output_cube_names
 
     def __str__(self):
-        output = {self.name: [self.params, self.input_cubes,
-            self.output_cubes]}
+        output = {self.name: [self.params, self.input_cube_names,
+            self.output_cube_names]}
         return str(output)
     
     def __call__(self, input_cubes, output_cubes, params):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-''' This file contains the classes Hdf5 and function
+''' This file contains the classes Hdf5
 
 '''
 
@@ -31,7 +31,7 @@ class Hdf5:
                 h5_file.attrs['functions'] = pickle.dumps([])
                 logging.info('Created file:' + self.filename)
 
-    def delete_dataset(self, group_name):
+    def delete_cube(self, group_name):
         ''' Remove a whole group from the hdf file
 
         '''
@@ -247,7 +247,7 @@ class Hdf5:
         for i in xrange(len(inds)):
             self.set_dataset(tmp_name, inds[i], data[i])
         ret_data = self.get_data(tmp_name, items)
-        self.delete_dataset(tmp_name)
+        self.delete_cube(tmp_name)
         return ret_data
     
     def get_data(self, group_name, items = {}):
@@ -299,8 +299,8 @@ class Hdf5:
 
         '''
         if func.name == "" or \
-                not func.input_cubes or \
-                not func.output_cubes:
+                not func.input_cube_names or \
+                not func.output_cube_names:
             raise ValueError('name, input_dsets and output_dsets must not be'
                     'empty')
         with h5py.File(self.filename,'a') as hdf5_file:
@@ -335,11 +335,11 @@ class Hdf5:
         logging.info('Importing the function: %s' % func)
         with h5py.File(self.filename, 'a') as h5_file:
             input_cubes = []
-            for input_cube_name in func.input_cubes:
+            for input_cube_name in func.input_cube_names:
                 input_cubes.append(h5_file[input_cube_name])
             output_cubes = []
             logging.info('Executing the function: %s' % func)
-            func.__call__(input_cubes, func.output_cubes,
+            func.__call__(input_cubes, func.output_cube_names,
                     func.params)
             for output_cube_name in output_cubes:
                 logging.info('Set the dirty status for the output datasets')
@@ -354,7 +354,7 @@ class Hdf5:
         with h5py.File(self.filename, 'r') as hdf5_file:
             logging.info('Collecting all functions containing dirty datasets')
             for func in self.get_functions():
-                for dset in func.input_cubes:
+                for dset in func.input_cube_names:
                     if hdf5_file[dset].attrs['dirty']:
                         dirty_funcs.append(func)
         for func in set(dirty_funcs):
@@ -363,9 +363,9 @@ class Hdf5:
         with h5py.File(self.filename, 'a') as hdf5_file:
             logging.info('Remove the dirty state from alle datasets')
             for func in dirty_funcs:
-                for dset in func.input_cubes:
+                for dset in func.input_cube_names:
                     hdf5_file[dset].attrs['dirty'] = False
-                for dset in func.output_cubes:
+                for dset in func.output_cube_names:
                     hdf5_file[dset].attrs['dirty'] = False
 
 if __name__ == '__main__':

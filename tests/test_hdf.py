@@ -39,7 +39,7 @@ def pytest_funcarg__hdf_project(request):
 def test_delete_non_existing_dataset(hdf_project):
     group_name = 'non existing'
     try:
-        hdf_project.delete_dataset(group_name)
+        hdf_project.delete_cube(group_name)
         assert False
     except KeyError:
         assert True
@@ -47,7 +47,7 @@ def test_delete_non_existing_dataset(hdf_project):
 def test_delete_dataset(hdf_project):
     group_name = 'Project Data'
     hdf_project.get_data(group_name, items={})
-    hdf_project.delete_dataset(group_name)
+    hdf_project.delete_cube(group_name)
     try:
         hdf_project.get_data(group_name, items={})
         assert False
@@ -141,12 +141,12 @@ def test_add(hdf_project, function):
     func = h.get_functions()[0]
     assert func.name == 'python.test.sum'
     assert func.params ==[]
-    assert func.input_cubes == [group_name, 'ds']
-    assert func.output_cubes == ['sum']
+    assert func.input_cube_names == [group_name, 'ds']
+    assert func.output_cube_names == ['sum']
 
 def test_execute_fail_length(hdf_project, function):
     h, my_sum = hdf_project, function
-    my_sum.input_cubes = ['ds']
+    my_sum.input_cube_names = ['ds']
     h.add_function(my_sum)
     try:
         h.execute_function(my_sum)
@@ -161,7 +161,7 @@ def test_del(hdf_project, function):
 
 def test_execute_function(hdf_project, function):
     hdf_project.execute_function(function)
-    name = function.output_cubes[0]
+    name = function.output_cube_names[0]
     data = hdf_project.get_data(name, items={})[0].flat
     expected = array([0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0,
         20.0, 22.0, 24.0, 26.0, 28.0, 30.0, 32.0, 34.0, 36.0, 38.0, 40.0, 42.0,
@@ -181,14 +181,14 @@ def test_recompute(hdf_project, function):
     h.add_function(mysum)
     h.recompute()
     with h5py.File(h.filename, 'a') as f:
-        assert f.get(mysum.output_cubes[0]).attrs['dirty'] == False
+        assert f.get(mysum.output_cube_names[0]).attrs['dirty'] == False
 
 def test_execute_fail_index_labels(hdf_project, function):
     h, my_sum = hdf_project, function
     h.create_dataset('fail', ['first_fail',[d('1'), d('2'), d('7.0')]],
             ['second',['a', 'b', 'c']], ['test',[d('1.0'), d('2.0'),
                 d('3.0')]], ['another',[d('1'), d('2.0'), '3', d('4')]])
-    my_sum.input_cubes = [my_sum.input_cubes[0], 'fail']
+    my_sum.input_cube_names = [my_sum.input_cube_names[0], 'fail']
     h.add_function(my_sum)
     try:
         h.execute_function(my_sum)

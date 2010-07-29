@@ -8,7 +8,7 @@ import os.path
 
 def pytest_funcarg__hdf_project(request):
     ''' Set up a project, create two datasets with alike dimensions (4x4
-    (filled with the numbers from 1 to 4x4 = 16) and 1x1(filled with the number
+    (filled with the numbers from 0 to 4x4 = 15) and 1x1(filled with the number
     1))
 
     '''
@@ -18,7 +18,7 @@ def pytest_funcarg__hdf_project(request):
     two_d_name_1 = '2D_1'
     two_d_name_2 = '2D_2'
 
-    # Create dset 1
+    # Create group 1
     hdf.create_dataset(two_d_name_1, ['x', [d('1'), d('2'), d('3'), d('4')]],
             ['y', [d('1'), d('2'), d('3'), d('4')]])
     hdf.create_dataset(two_d_name_1, ['x', [d('10')]], ['y', [d('10')]])
@@ -27,7 +27,7 @@ def pytest_funcarg__hdf_project(request):
     hdf.set_dataset(two_d_name_1, {'x':d('10'), 'y':d('10')},
             array(1).reshape((1,1)))
 
-    # Create dset 2
+    # Create group 2
     hdf.create_dataset(two_d_name_2, ['x', [d('1'), d('2'), d('3'), d('4')]],
             ['y', [d('1'), d('2'), d('3'), d('4')]])
     hdf.create_dataset(two_d_name_2, ['x', [d('10')]], ['y', [d('10')]])
@@ -52,7 +52,7 @@ def test_four_cubes(hdf_project):
     two_d_name_3 = '2D_3'
     two_d_name_4 = '2D_4'
 
-    # Create dset 3
+    # Create group 3
     hdf.create_dataset(two_d_name_3, ['x', [d('1'), d('2'), d('3'), d('4')]],
             ['y', [d('1'), d('2'), d('3'), d('4')]])
     hdf.create_dataset(two_d_name_3, ['x', [d('10')]], ['y', [d('10')]])
@@ -61,7 +61,7 @@ def test_four_cubes(hdf_project):
     hdf.set_dataset(two_d_name_3, {'x':d('10'), 'y':d('10')},
             array(1).reshape((1,1)))
 
-    # Create dset 4
+    # Create group 4
     hdf.create_dataset(two_d_name_4, ['x', [d('1'), d('2'), d('3'), d('4')]],
             ['y', [d('1'), d('2'), d('3'), d('4')]])
     hdf.create_dataset(two_d_name_4, ['x', [d('10')]], ['y', [d('10')]])
