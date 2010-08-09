@@ -1,4 +1,4 @@
-'''Some useful function for modifying or accessing cubes.
+'''Some useful functions for modifying or accessing cubes.
 
 
 '''

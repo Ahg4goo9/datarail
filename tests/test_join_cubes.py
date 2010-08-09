@@ -3,11 +3,10 @@ from join_cubes import JoinCubes
 from decimal import Decimal as d
 from numpy import arange, array
 import os
-import os.path
 
 def pytest_funcarg__hdf_project(request):
     ''' Set up a project, create two datasets with alike dimensions (4x4
-    (filled with the numbers from 1 to 4x4 = 16) and 1x1(filled with the number
+    (filled with the numbers from 0 to 4x4 = 15) and 1x1(filled with the number
     1))
 
     '''
@@ -15,15 +14,15 @@ def pytest_funcarg__hdf_project(request):
         os.remove('join.hdf5')
     hdf = Hdf5('join')
 
-    # Create dset 1
+    # Create group 1
     two_d_name_1 = '2D_1'
-    hdf.create_dataset(two_d_name_1, ['x', [d('1'), d('2'), d('3'), d('4')]],
-            ['y', ['a', 'b', 'c', 'd']])
-    hdf.create_dataset(two_d_name_1, ['x', [d('10')]], ['y', ['e']])
-    hdf.set_dataset(two_d_name_1, {'x':d('1'), 'y':'a'},
-            arange(4*4).reshape((4, 4)))
-    hdf.set_dataset(two_d_name_1, {'x':d('10'), 'y':'e'},
-            array(1).reshape((1, 1)))
+    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_1)
+    sdcube1 = hdf.get_sdcube(filename, name)
+    sdcube1.create_dataset({'x':[d('1'), d('2'), d('3'), d('4')],
+            'y':['a', 'b', 'c', 'd']})
+    sdcube1.create_dataset({'x':[d('10')], 'y':['e']})
+    sdcube1.set_data({'x':d('1'), 'y':'a'}, arange(4*4).reshape((4, 4)))
+    sdcube1.set_data({'x':d('10'), 'y':'e'}, array(1).reshape((1, 1)))
 
     # And this is what it looks like
     #          y
@@ -36,16 +35,14 @@ def pytest_funcarg__hdf_project(request):
     # |10             1  #
     ######################
 
-    # Create dset 2
+    # Create group 2
     two_d_name_2 = '2D_2'
-    hdf.create_dataset(two_d_name_2, ['x', [d('10')]], ['y', ['a', 'b', 'c',
-        'd']])
-    hdf.create_dataset(two_d_name_2, ['x', [d('1'), d('2'), d('3'), d('4')]],
-            ['y', ['e']])
-    hdf.set_dataset(two_d_name_2, {'x':d('10'), 'y':'a'},
-            arange(4).reshape((1, 4)))
-    hdf.set_dataset(two_d_name_2, {'x':d('1'), 'y':'e'},
-            arange(4).reshape((4, 1)))
+    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_2)
+    sdcube2 = hdf.get_sdcube(filename, name)
+    sdcube2.create_dataset({'x':[d('10')], 'y':['a', 'b', 'c', 'd']})
+    sdcube2.create_dataset({'x':[d('1'), d('2'), d('3'), d('4')], 'y':['e']})
+    sdcube2.set_data({'x':d('10'), 'y':'a'}, arange(4).reshape((1, 4)))
+    sdcube2.set_data({'x':d('1'), 'y':'e'}, arange(4).reshape((4, 1)))
 
     # And this is what it looks like
     #          y
@@ -77,10 +74,11 @@ def test_different_dim_labels(hdf_project):
     fail because of that.
 
     '''
-    # Create dset 3
+    # Create group 3
     two_d_name_3 = '2D_3'
-    hdf_project.create_dataset(two_d_name_3, ['x', [d('10')]], ['z', ['a', 'b',
-        'c', 'd']])
+    name, filename = hdf_project.add_sdcube(['x', 'z'], name=two_d_name_3)
+    sdcube3 = hdf_project.get_sdcube(filename, name)
+    sdcube3.create_dataset({'x':[d('10')], 'z':['a', 'b', 'c', 'd']})
     my_join_functions = JoinCubes('Join', [], ['2D_1', '2D_2', '2D_3'],
             ['joined_cube'])
     hdf_project.add_function(my_join_functions)
@@ -120,13 +118,14 @@ def test_five_2D_cubes(hdf_project):
 
     '''
     hdf = hdf_project
-    # Create dset 3 additional cubes
+    # Create group 3 additional cubes
     for i in xrange(3, 6):
         cube_name = ''.join(('2D_', str(i)))
-        hdf.create_dataset(cube_name, ['x', [d(str(i*4))]], ['y', ['a', 'b',
-            'c', 'd']])
-        hdf.set_dataset(cube_name, {'x':d(str(i*4)), 'y':'a'},
-                3 * i * arange(4).reshape((1, 4)))
+        name, filename = hdf.add_sdcube(['x', 'y'], name=cube_name)
+        sdcube = hdf.get_sdcube(filename, name)
+        sdcube.create_dataset({'x':[d(str(i*4))], 'y':['a', 'b', 'c', 'd']})
+        sdcube.set_data({'x':d(str(i*4)), 'y':'a'}, 3 * i *
+                arange(4).reshape((1, 4)))
 
     cube_names = [''.join(('2D_', str(i))) for i in xrange(1, 6)]
     my_join_functions = JoinCubes('Join', [], cube_names, ['joined_cube'])
@@ -154,15 +153,15 @@ def test_five_2D_cubes(hdf_project):
 
 def test_merge(hdf_project):
     hdf = hdf_project
-    # Create dset 4
+    # Create group 3
     two_d_name_3 = '2D_3'
-    hdf.create_dataset(two_d_name_3, ['x', [d('1'), d('2'), d('3'), d('4')]],
-            ['y', ['a', 'b', 'c', 'd']])
-    hdf.create_dataset(two_d_name_3, ['x', [d('1')]], ['y', ['e']])
-    hdf.set_dataset(two_d_name_3, {'x':d('1'), 'y':'a'},
-            arange(4*4).reshape((4, 4)))
-    hdf.set_dataset(two_d_name_3, {'x':d('1'), 'y':'e'},
-            array(1).reshape((1, 1)))
+    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_3)
+    sdcube3 = hdf.get_sdcube(filename, name)
+    sdcube3.create_dataset({'x':[d('1'), d('2'), d('3'), d('4')], 'y':['a',
+        'b', 'c', 'd']})
+    sdcube3.create_dataset({'x':[d('1')], 'y':['e']})
+    sdcube3.set_data({'x':d('1'), 'y':'a'}, arange(4*4).reshape((4, 4)))
+    sdcube3.set_data({'x':d('1'), 'y':'e'}, array(1).reshape((1, 1)))
 
     # And this is what it looks like
     #          y
@@ -177,14 +176,12 @@ def test_merge(hdf_project):
 
     # Create dset 4
     two_d_name_4 = '2D_4'
-    hdf.create_dataset(two_d_name_4, ['x', [d('10')]], ['y', ['a', 'b', 'c',
-        'd']])
-    hdf.create_dataset(two_d_name_4, ['x', [d('2'), d('3'), d('4'), d('10')]],
-            ['y', ['e']])
-    hdf.set_dataset(two_d_name_4, {'x':d('10'), 'y':'a'},
-            arange(4).reshape((1, 4)))
-    hdf.set_dataset(two_d_name_4, {'x':d('2'), 'y':'e'},
-            arange(4).reshape((4, 1)))
+    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_4)
+    sdcube4 = hdf.get_sdcube(filename, name)
+    sdcube4.create_dataset({'x':[d('10')], 'y':['a', 'b', 'c', 'd']})
+    sdcube4.create_dataset({'x':[d('2'), d('3'), d('4'), d('10')], 'y':['e']})
+    sdcube4.set_data({'x':d('10'), 'y':'a'}, arange(4).reshape((1, 4)))
+    sdcube4.set_data({'x':d('2'), 'y':'e'}, arange(4).reshape((4, 1)))
 
     # And this is what it looks like
     #          y

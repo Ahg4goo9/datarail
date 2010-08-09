@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-''' This file contains the classes Hdf5
+''' This file contains some useful functions to manipulate hdf objects.
+It also contains the classes Hdf5 and sdcube
 
 '''
 
@@ -8,9 +9,39 @@ from __future__ import with_statement
 import h5py
 import cPickle as pickle
 import os
-import os.path
 import logging
 from numpy import nan, empty
+
+def is_sequential(elements):
+    for i, dim_index in enumerate(sorted(elements)):
+        if i != dim_index:
+            return False
+    return True
+    
+def storeMapping(h5_elem, mapping):
+    ''' Calls storeAttribute to save a mapping as an attribute in the
+    h5_element.
+        
+    '''
+    storeAttribute(h5_elem, 'mapping', mapping)
+
+def storeAttribute(h5_elem, attribute_name, attribute):
+    ''' Stores an attribute in the h5 element.
+
+    '''
+    h5_elem.attrs[attribute_name] = pickle.dumps(attribute)
+
+def loadMapping(h5_elem):
+    ''' Calls loadAttribute to load a mapping from the h5_element.
+        
+    '''
+    return loadAttribute(h5_elem, 'mapping')
+
+def loadAttribute(h5_elem, attribute_name):
+    ''' Loads an attribute from the h5 element.
+
+    '''
+    return pickle.loads(str(h5_elem.attrs[attribute_name]))
 
 class Hdf5:
     ''' Class for creating a hdf5 datacube with associated metadata.
@@ -29,7 +60,51 @@ class Hdf5:
             with h5py.File(self.filename, 'w') as h5_file:
                 # No functions yet
                 h5_file.attrs['functions'] = pickle.dumps([])
+                h5_file.attrs['sdcubes'] = pickle.dumps([])
                 logging.info('Created file:' + self.filename)
+
+    def get_sdcube(self, name, filename=None):
+        ''' Load the sdcube with the name name. 
+        If filename is not given assume the sdcube is in the project file.
+
+        '''
+        if not filename:
+            filename = self.filename
+        return SdCube.load(name, filename)
+    
+    def add_sdcube(self, mapping, name=None, filename=None):
+        ''' Add an sd cube to the project. Return the created name and the
+        filename.
+
+        '''
+        with h5py.File(self.filename, 'r') as h5_file:
+            sdcube_list = loadAttribute(h5_file, 'sdcubes')
+        if not name:
+            name = str(len(sdcube_list))
+        if not filename:
+            filename = self.filename
+        SdCube(name, filename, mapping)
+        with h5py.File(self.filename, 'a') as h5_file:
+            sdcube_list = loadAttribute(h5_file, 'sdcubes')
+            sdcube_list.append((filename, name))
+            storeAttribute(h5_file, 'sdcubes', sdcube_list)
+        return name, filename 
+
+    def delete_cube_new(self, (group_name, filename)):
+        logging.info('Try to delete: %s' % group_name)
+        with h5py.File(self.filename, 'r') as h5_file:
+            try:
+                sdcube_list = loadAttribute(h5_file, 'sdcubes')
+                sdcube_list.remove((group_name, filename))
+                del h5_file[group_name]
+                # delete the cube if it is empty (and not the project file)
+                if not h5_file.keys() and \
+                    not 'functions' in h5_file.attrs.keys():
+                        os.remove(h5_file)
+                logging.info('Deleted: %s' % group_name)
+            except KeyError:
+                logging.error('Unable to delete the group %s' % group_name)
+                raise ValueError('Unable to delete the group %s' % group_name)
 
     def delete_cube(self, group_name):
         ''' Remove a whole group from the hdf file
@@ -49,7 +124,6 @@ class Hdf5:
         if not dimensions:
             logging.error('Dimension must not be empty')
             raise ValueError('Dimension must not be empty')
-
         group_mapping = dict((k, i) for i, (k, v) in enumerate(dimensions))
         dset_mapping = dict([i, v] for i, (k, v) in enumerate(dimensions))
         dims = [len(value) for key, value in dimensions]
@@ -73,9 +147,9 @@ class Hdf5:
             if grp.keys():
                 if not len(grp[grp.keys()[0]].shape) == len(dims):
                     logging.error('The new dataset has the wrong number of'
-                            'dimensions: %s' % self.filename)
-                    raise ValueError('The dataset has the wrong number of'
-                    'dimensions')
+                            ' dimensions: %s' % self.filename)
+                    raise ValueError('The dataset has the wrong number of' 
+                            ' dimensions')
                 for key in grp.keys():
                     mapping = self.get_mapping(grp[key])
                     share_points = True
@@ -85,10 +159,10 @@ class Hdf5:
                             share_points = False
                 if share_points:
                     logging.error('The new dataset shares some datapoints '
-                             'with at least one existing dataset. Aborting'
-                             'insert.')
+                             ' with at least one existing dataset. Aborting'
+                             ' insert.')
                     raise ValueError('The new dataset shares some datapoints'
-                            'with an existing dataset')
+                            ' with an existing dataset')
                     
             logging.info('Creating dataset: ' + dset_name)
             dset = grp.create_dataset(str(len(grp.keys())), dims)
@@ -422,3 +496,199 @@ if __name__ == '__main__':
     hdf.set_dataset(two_d_name, {'x':d('10'), 'y':d('10')},
             5*arange(1*1).reshape((1,1)))
     '''
+
+class SdCube(object):
+    ''' A SdCube is a h5py group with a mapping attached
+    It has a list with the containing datasets and another list with the
+    mapping for each containing dataset.
+
+    '''
+
+    def __init__(self, name, filename, dim_labels):
+        ''' Create a group with the name in an hdf5 file.
+        If the group existed in the file before delete it.
+
+        '''
+        mapping = dict([dim, i] for i, dim in enumerate(dim_labels))
+        if not is_sequential(mapping.values()):
+            logging.error('Dimensions must be sequently.')
+            raise ValueError('Dimensions must be sequently.')
+        self.name = name
+        self.filename = filename
+        with h5py.File(self.filename, 'a') as h5_file:
+            try:
+                logging.info('Group created.')
+                self.grp = h5_file.create_group(name)
+                storeMapping(self.grp, mapping)
+            except ValueError:
+                logging.info('Group already exists.')
+    
+    @classmethod
+    def load(cls, filename, group_name):
+        ''' Load an existing SdCube from an hdf5 file.
+
+        '''
+        if not os.path.exists(filename):
+            logging.error('The SdCube does not exist.')
+            raise ValueError('The SdCube does not exist.')
+        with h5py.File(filename, 'r') as h5_file:
+            try:
+                # The first key should the name of the group
+                group = h5_file[group_name]
+                mapping = loadMapping(group)
+            except KeyError:
+                logging.error('The file seems to be invalid.')
+                raise ValueError('The file seems to be invalid.')
+        return(cls(group_name, filename, mapping))
+
+    @property
+    def group(self):
+        ''' Return the group.
+
+        '''
+        with h5py.File(self.filename, 'r') as h5_file:
+            return h5_file[self.name]
+
+    @property
+    def mapping(self):
+        ''' Return the mapping for the group.
+            
+        '''
+        with h5py.File(self.filename, 'r') as h5_file:
+            return loadMapping(h5_file[self.name])
+
+    @mapping.setter
+    def mapping(self, value):
+        if not is_sequential(value.values()):
+            logging.error('Dimensions must be sequently.')
+            raise ValueError('Dimensions must be sequently.')
+        with h5py.File(self.filename, 'a') as h5_file:
+            storeMapping(h5_file[self.name], value)
+
+    def create_dataset(self, dimensions):
+        ''' Create a dataset within the SdCube
+
+        '''
+        if not dimensions:
+            logging.error('Dimension must not be empty')
+            raise ValueError('Dimension must not be empty')
+        group_mapping = self.mapping
+        if not dimensions.keys() == self.mapping.keys():
+            logging.error('The dataset must have the same dimension labels as'
+                    ' the old dataset.')
+            raise ValueError('The dataset must have the same dimension labels'
+                    ' as the old dataset.')
+        dset_mapping = dict()
+        dims = [[]] * len(group_mapping)
+        for dim_label, dim_index in group_mapping.items():
+            dset_mapping[dim_index] = dimensions[dim_label]
+            dims[dim_index] = len(dimensions[dim_label])
+        #for dim_label, index_labels in dimensions.items():
+        #    dset_mapping[group_mapping[dim_label]] = index_labels
+        #dset_mapping = dict([i, v] for i, (k, v) in enumerate(dimensions))
+        #dims = [len(value) for value in dimensions.values()]
+
+        with h5py.File(self.filename, 'a') as h5_file:
+            grp = h5_file[self.name]
+            # check if there already is a dataset and if the number 
+            # of dimensions is equal to the new one '''
+            if grp.keys():
+                if not len(grp[grp.keys()[0]].shape) == len(dims):
+                    logging.error('The new dataset has the wrong number of'
+                            'dimensions: %s' % self.filename)
+                    raise ValueError('The dataset has the wrong number of'
+                    'dimensions')
+                for key in grp.keys():
+                    mapping = loadMapping(grp[key])
+                    share_points = True
+                    for key in mapping:
+                        if not [x for x in mapping[key] if x in
+                                dset_mapping[key]]:
+                            share_points = False
+                if share_points:
+                    logging.error('The new dataset shares some datapoints '
+                             ' with at least one existing dataset. Aborting'
+                             ' insert.')
+                    raise ValueError('The new dataset shares some datapoints'
+                            ' with an existing dataset')
+                    
+            logging.info('Creating dataset: ' + self.name)
+            # the dset name is just the next available number
+            dset = grp.create_dataset(str(len(grp.keys())), dims)
+            dset.attrs['mapping'] = pickle.dumps(dset_mapping)
+            grp.attrs['dirty'] = True
+            grp.attrs['mapping'] = pickle.dumps(group_mapping)
+            logging.info('Dataset created.')
+
+    def set_data(self, location, data):
+        ''' Search for the right cube in the group and check if the
+        data fits into the cube at the given location.
+        Set the data for that given cube.
+
+        '''
+        logging.info('Setting data in: ' + self.name)
+
+        with h5py.File(self.filename) as h5_file:
+            grp = h5_file[self.name]
+            group_mapping = self.mapping
+            if not len(location) == len(group_mapping.keys()):
+                logging.error('Please specify a single point')
+                raise ValueError('Please specify a single point')
+
+            if not len(location) == len(data.shape):
+                logging.error('data should have as many dimensions as the'
+                        'dataset')
+                raise ValueError('data should have as many dimensions as the'
+                        'dataset')
+            for key in location.keys():
+                if not key in group_mapping.keys():
+                    logging.error('Index not in mapping.')
+                    raise ValueError('Index not in mapping.')
+            
+            destination_dset, ind = self.__get_dataset_with_indices(grp,
+                    location, data)
+            if not destination_dset:
+                logging.error('No valid dataset found.')
+                raise ValueError('No valid dataset found.')
+
+            for dim_index, dim_length in enumerate(data.shape):
+                if dim_length > destination_dset.shape[dim_index]:
+                    logging.error('The given data is too big for the'
+                    'dataset.')
+                    raise ValueError('The given data is too big.')
+            destination_dset[tuple(ind)] = data
+            grp.attrs['dirty'] = True
+            logging.info('Data set.')
+
+    def __get_dataset_with_indices(self, grp, indices, data):
+        ''' Find the dataset within the group grp that contains the indices.
+        '''
+
+        group_mapping = pickle.loads(grp.attrs['mapping'])
+        ind = [slice(0, dim_length, 1) for dim_length in data.shape]
+        destination_dset = None
+        for dset in grp.values():
+            dataset_valid = True
+            for key, value in indices.iteritems():
+                index = self.index(group_mapping[key], value, dset)
+                if index == -1:
+                    dataset_valid = False
+                    break 
+                ind[group_mapping[key]] = slice(index, index +
+                        data.shape[group_mapping[key]], 1)
+            if not dataset_valid:
+                continue 
+            destination_dset = dset
+            break #dataset found
+        return destination_dset, ind
+
+    def index(self, dimension_index, index_label, dset):
+        ''' Returns the mapped index of the index_label within the hdf 
+        data cube and the index of the value within that.
+        
+        '''
+        mapping = pickle.loads(str(dset.attrs['mapping']))
+        if index_label in mapping[dimension_index]:
+            return mapping[dimension_index].index(index_label)
+        return -1
+

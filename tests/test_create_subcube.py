@@ -3,7 +3,6 @@ from create_subcube import Create_subcube
 from decimal import Decimal as d
 from numpy import arange, array
 import os
-import os.path
 
 def pytest_funcarg__hdf_project(request):
     ''' Set up a project, create two datasets with alike dimensions (4x4
@@ -17,13 +16,13 @@ def pytest_funcarg__hdf_project(request):
     two_d_name_1 = '2D_1'
 
     # Create dset 1
-    hdf.create_dataset(two_d_name_1, ['x', [d('1'), d('2'), d('3'), d('4')]],
-            ['y', ['a', 'b', 'c', 'd']])
-    hdf.create_dataset(two_d_name_1, ['x', [d('10')]], ['y', ['e']])
-    hdf.set_dataset(two_d_name_1, {'x':d('1'), 'y':'a'},
-            arange(4*4).reshape((4, 4)))
-    hdf.set_dataset(two_d_name_1, {'x':d('10'), 'y':'e'},
-            array(1).reshape((1, 1)))
+    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_1)
+    sdcube1 = hdf.get_sdcube(filename, name)
+    sdcube1.create_dataset({'x':[d('1'), d('2'), d('3'), d('4')], 'y':['a',
+        'b', 'c', 'd']})
+    sdcube1.create_dataset({'x':[d('10')], 'y':['e']})
+    sdcube1.set_data({'x':d('1'), 'y':'a'}, arange(4*4).reshape((4, 4)))
+    sdcube1.set_data({'x':d('10'), 'y':'e'}, array(1).reshape((1, 1)))
 
     # And this is what it looks like
     #          y

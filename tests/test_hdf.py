@@ -5,7 +5,6 @@ from hdf import Hdf5
 from sum import Sum
 from decimal import Decimal as d
 import os
-import os.path
 
 def pytest_funcarg__hdf_project(request):
     ''' Set up a project, create two datasets with alike dimensions and
@@ -16,6 +15,13 @@ def pytest_funcarg__hdf_project(request):
         os.remove('project.hdf5')
     hdf = Hdf5('project')
     group_name = 'Project Data'
+    #name, filename = hdf.add_sdcube({'first':0, 'second':1, 'test':2,
+    #    'another':3}, name=group_name)
+    #sdcube1 = hdf.get_sdcube(filename, name)
+    #sdcube1.create_dataset({'first':[d('1'), d('2'), d('7.0')],
+    #        'second':['a', 'b', 'c'], 'test':[d('1.0'), d('2.0'), d('3.0')],
+    #        'another':[d('1'), d('2.0'), '3', d('4')]})
+    indices = {'first':d('1'), 'second':'a', 'test':d('1.0'), 'another':d('1')}
     hdf.create_dataset(group_name, ['first',[d('1'), d('2'), d('7.0')]],
             ['second',['a', 'b', 'c']], ['test',[d('1.0'), d('2.0'), d('3.0')]],
             ['another',[d('1'), d('2.0'), '3', d('4')]])
