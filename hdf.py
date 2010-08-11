@@ -90,6 +90,7 @@ class Hdf5:
             storeAttribute(h5_file, 'sdcubes', sdcube_list)
         return name, filename 
 
+    #TODO which one should be used?
     def delete_cube_new(self, (group_name, filename)):
         logging.info('Try to delete: %s' % group_name)
         with h5py.File(self.filename, 'r') as h5_file:
@@ -504,7 +505,7 @@ class SdCube(object):
 
     '''
 
-    def __init__(self, name, filename, dim_labels):
+    def __init__(self, name, filename, dim_labels, units=[]):
         ''' Create a group with the name in an hdf5 file.
         If the group existed in the file before delete it.
 
@@ -513,6 +514,11 @@ class SdCube(object):
         if not is_sequential(mapping.values()):
             logging.error('Dimensions must be sequently.')
             raise ValueError('Dimensions must be sequently.')
+        if units and not len(mapping) == len(units):
+            logging.error('The number of units is not equal to the number of'
+                    ' dimensions.')
+            raise ValueError('The number of units is not equal to the number'
+            ' of dimensions.')
         self.name = name
         self.filename = filename
         with h5py.File(self.filename, 'a') as h5_file:
@@ -520,11 +526,12 @@ class SdCube(object):
                 logging.info('Group created.')
                 self.grp = h5_file.create_group(name)
                 storeMapping(self.grp, mapping)
+                storeAttribute(self.grp, 'units', units)
             except ValueError:
                 logging.info('Group already exists.')
     
     @classmethod
-    def load(cls, filename, group_name):
+    def load(cls, filename, group_name, units=[]):
         ''' Load an existing SdCube from an hdf5 file.
 
         '''
@@ -539,7 +546,7 @@ class SdCube(object):
             except KeyError:
                 logging.error('The file seems to be invalid.')
                 raise ValueError('The file seems to be invalid.')
-        return(cls(group_name, filename, mapping))
+        return(cls(group_name, filename, mapping, units))
 
     @property
     def group(self):
@@ -550,6 +557,28 @@ class SdCube(object):
             return h5_file[self.name]
 
     @property
+    def unit_mapping(self):
+        ''' Return the unit mapping for the group
+
+        '''
+        with h5py.File(self.filename, 'r') as h5_file:
+            return loadAttribute(h5_file[self.name], 'units')
+
+    @unit_mapping.setter
+    def unit_mapping(self, value):
+        ''' Set the unit_mapping to value if the length of value is equal to
+        the number of dimensions of the group
+
+        '''
+        if not len(value) == len(self.mapping):
+            logging.error('The number of units must be equal to the number of'
+            ' dimensions')
+            raise ValueError('The number of units must be equal to the number'
+            ' of dimensions')
+        with h5py.File(self.filename, 'a') as h5_file:
+            storeAttribute(h5_file[self.name],'units',  value)
+    
+    @property
     def mapping(self):
         ''' Return the mapping for the group.
             
@@ -559,6 +588,12 @@ class SdCube(object):
 
     @mapping.setter
     def mapping(self, value):
+        ''' The the mapping of the group if the value is sequential and starts
+        at the dimension index 0. E.g.
+        {'x':0, 'y':1} would be valid, {'x':1, 'y':2} or {'x':0, 'y':2} are
+        not.
+
+        '''
         if not is_sequential(value.values()):
             logging.error('Dimensions must be sequently.')
             raise ValueError('Dimensions must be sequently.')

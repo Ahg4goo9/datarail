@@ -24,6 +24,19 @@ def test_mapping(simple_sdcube):
     if not simple_sdcube.mapping == {'EGF':0, 'h20':1}:
         assert False
 
+def test_units():
+    filename = 'myfile.hdf5'
+    if os.path.exists(filename):
+        os.remove(filename)
+    try:
+        SdCube('myName', filename, ['x', 'y', 'z'], ['ng', 'mg/l'])
+        assert False
+    except ValueError:
+        assert True
+    cube = SdCube('myName', filename, ['x', 'y', 'z'], ['ng', 'mg/l', 'm'])
+    if not cube.unit_mapping == ['ng', 'mg/l', 'm']:
+        assert False
+
 def test_create_dataset(simple_sdcube):
     try:
         simple_sdcube.create_dataset(
