@@ -149,6 +149,6 @@ class Function:
             self.output_cube_names]}
         return str(output)
     
-    def __call__(self, input_cubes, output_cubes, params):
+    def __call__(self, input_cubes, output_cube_names, params):
         raise NotImplementedError
 

@@ -10,7 +10,7 @@ import h5py
 import cPickle as pickle
 import os
 import logging
-from numpy import nan, empty
+#from numpy import nan, empty
 
 def is_sequential(elements):
     for i, dim_index in enumerate(sorted(elements)):
@@ -19,25 +19,25 @@ def is_sequential(elements):
     return True
     
 def storeMapping(h5_elem, mapping):
-    ''' Calls storeAttribute to save a mapping as an attribute in the
+    ''' Calls store_attribute to save a mapping as an attribute in the
     h5_element.
         
     '''
-    storeAttribute(h5_elem, 'mapping', mapping)
+    store_attribute(h5_elem, 'mapping', mapping)
 
-def storeAttribute(h5_elem, attribute_name, attribute):
+def store_attribute(h5_elem, attribute_name, attribute):
     ''' Stores an attribute in the h5 element.
 
     '''
     h5_elem.attrs[attribute_name] = pickle.dumps(attribute)
 
-def loadMapping(h5_elem):
-    ''' Calls loadAttribute to load a mapping from the h5_element.
+def load_mapping(h5_elem):
+    ''' Calls load_attribute to load a mapping from the h5_element.
         
     '''
-    return loadAttribute(h5_elem, 'mapping')
+    return load_attribute(h5_elem, 'mapping')
 
-def loadAttribute(h5_elem, attribute_name):
+def load_attribute(h5_elem, attribute_name):
     ''' Loads an attribute from the h5 element.
 
     '''
@@ -60,43 +60,56 @@ class Hdf5:
             with h5py.File(self.filename, 'w') as h5_file:
                 # No functions yet
                 h5_file.attrs['functions'] = pickle.dumps([])
-                h5_file.attrs['sdcubes'] = pickle.dumps([])
+                h5_file.attrs['sdcubes'] = pickle.dumps({})
                 logging.info('Created file:' + self.filename)
 
-    def get_sdcube(self, name, filename=None):
+    def get_sdcube(self, name):
         ''' Load the sdcube with the name name. 
         If filename is not given assume the sdcube is in the project file.
 
         '''
-        if not filename:
-            filename = self.filename
-        return SdCube.load(name, filename)
+        with h5py.File(self.filename, 'r') as h5_file:
+            sdcubes = load_attribute(h5_file, 'sdcubes')
+        return SdCube.load(sdcubes[name], name)
     
-    def add_sdcube(self, mapping, name=None, filename=None):
+    #def add_sdcube(self, mapping, name=None, filename=None):
+    def add_sdcube(self, mapping, name=None):
         ''' Add an sd cube to the project. Return the created name and the
         filename.
 
         '''
         with h5py.File(self.filename, 'r') as h5_file:
-            sdcube_list = loadAttribute(h5_file, 'sdcubes')
+            sdcubes = load_attribute(h5_file, 'sdcubes')
+            if name in sdcubes:
+                logging.error('A group with the name %s alread exists' % name)
+                raise KeyError('A group with the name %s alread exists' % name)
+            for key in sdcubes:
+                if name.lower() == key:
+                    raise Warning('%s looks like %s!' % (name, key))
+                    raise KeyError('%s looks like %s!' % (name, key))
         if not name:
-            name = str(len(sdcube_list))
-        if not filename:
-            filename = self.filename
+            name = str(len(sdcubes)) #name will be a number
+        
+        #TODO: until we decide if filenames are needed
+        #if not filename:
+        #    filename = self.filename
+        filename = self.filename
+
+
         SdCube(name, filename, mapping)
         with h5py.File(self.filename, 'a') as h5_file:
-            sdcube_list = loadAttribute(h5_file, 'sdcubes')
-            sdcube_list.append((filename, name))
-            storeAttribute(h5_file, 'sdcubes', sdcube_list)
-        return name, filename 
+            sdcubes = load_attribute(h5_file, 'sdcubes')
+            sdcubes[name] = filename
+            store_attribute(h5_file, 'sdcubes', sdcubes)
+        return name
 
-    #TODO which one should be used?
-    def delete_cube_new(self, (group_name, filename)):
+    def delete_cube(self, group_name):
         logging.info('Try to delete: %s' % group_name)
         with h5py.File(self.filename, 'r') as h5_file:
             try:
-                sdcube_list = loadAttribute(h5_file, 'sdcubes')
-                sdcube_list.remove((group_name, filename))
+                sdcubes = load_attribute(h5_file, 'sdcubes')
+                del sdcubes[group_name]
+#TODO delete the file if necessary
                 del h5_file[group_name]
                 # delete the cube if it is empty (and not the project file)
                 if not h5_file.keys() and \
@@ -107,16 +120,7 @@ class Hdf5:
                 logging.error('Unable to delete the group %s' % group_name)
                 raise ValueError('Unable to delete the group %s' % group_name)
 
-    def delete_cube(self, group_name):
-        ''' Remove a whole group from the hdf file
-
-        '''
-        logging.info('Try to delete: %s' % group_name)
-        with h5py.File(self.filename, 'a') as h5_file:
-            del h5_file[group_name]
-            logging.info('Deleted: %s' % group_name)
-
-    def create_dataset(self, dset_name, *dimensions):
+    """def create_dataset(self, dset_name, *dimensions):
         ''' Create the mapping and pickle it. 
         Load the group named like the dataset or create it if it is not
         present.
@@ -368,7 +372,7 @@ class Hdf5:
                         shape[j] = 1
                 return_data.append(value[tuple(inds[i])].reshape(shape))
             return return_data, first_inds
-
+"""
     def add_function(self, func):
         ''' Add a function to the project
 
@@ -440,8 +444,11 @@ class Hdf5:
             for func in dirty_funcs:
                 for dset in func.input_cube_names:
                     hdf5_file[dset].attrs['dirty'] = False
+                sdcubes = load_attribute(hdf5_file, 'sdcubes')
                 for dset in func.output_cube_names:
+                    sdcubes[dset] = self.filename
                     hdf5_file[dset].attrs['dirty'] = False
+                store_attribute(hdf5_file, 'sdcubes', sdcubes)
 
 if __name__ == '__main__':
     '''from numpy import random, arange
@@ -526,7 +533,7 @@ class SdCube(object):
                 logging.info('Group created.')
                 self.grp = h5_file.create_group(name)
                 storeMapping(self.grp, mapping)
-                storeAttribute(self.grp, 'units', units)
+                store_attribute(self.grp, 'units', units)
             except ValueError:
                 logging.info('Group already exists.')
     
@@ -542,7 +549,7 @@ class SdCube(object):
             try:
                 # The first key should the name of the group
                 group = h5_file[group_name]
-                mapping = loadMapping(group)
+                mapping = load_mapping(group)
             except KeyError:
                 logging.error('The file seems to be invalid.')
                 raise ValueError('The file seems to be invalid.')
@@ -558,16 +565,16 @@ class SdCube(object):
 
     @property
     def unit_mapping(self):
-        ''' Return the unit mapping for the group
+        ''' Return the unit mapping for the group.
 
         '''
         with h5py.File(self.filename, 'r') as h5_file:
-            return loadAttribute(h5_file[self.name], 'units')
+            return load_attribute(h5_file[self.name], 'units')
 
     @unit_mapping.setter
     def unit_mapping(self, value):
         ''' Set the unit_mapping to value if the length of value is equal to
-        the number of dimensions of the group
+        the number of dimensions of the group.
 
         '''
         if not len(value) == len(self.mapping):
@@ -576,7 +583,7 @@ class SdCube(object):
             raise ValueError('The number of units must be equal to the number'
             ' of dimensions')
         with h5py.File(self.filename, 'a') as h5_file:
-            storeAttribute(h5_file[self.name],'units',  value)
+            store_attribute(h5_file[self.name],'units',  value)
     
     @property
     def mapping(self):
@@ -584,7 +591,7 @@ class SdCube(object):
             
         '''
         with h5py.File(self.filename, 'r') as h5_file:
-            return loadMapping(h5_file[self.name])
+            return load_mapping(h5_file[self.name])
 
     @mapping.setter
     def mapping(self, value):
@@ -634,7 +641,7 @@ class SdCube(object):
                     raise ValueError('The dataset has the wrong number of'
                     'dimensions')
                 for key in grp.keys():
-                    mapping = loadMapping(grp[key])
+                    mapping = load_mapping(grp[key])
                     share_points = True
                     for key in mapping:
                         if not [x for x in mapping[key] if x in
@@ -671,9 +678,9 @@ class SdCube(object):
                 raise ValueError('Please specify a single point')
 
             if not len(location) == len(data.shape):
-                logging.error('data should have as many dimensions as the'
+                logging.error('data should have as many dimensions as the '
                         'dataset')
-                raise ValueError('data should have as many dimensions as the'
+                raise ValueError('data should have as many dimensions as the '
                         'dataset')
             for key in location.keys():
                 if not key in group_mapping.keys():
@@ -688,7 +695,7 @@ class SdCube(object):
 
             for dim_index, dim_length in enumerate(data.shape):
                 if dim_length > destination_dset.shape[dim_index]:
-                    logging.error('The given data is too big for the'
+                    logging.error('The given data is too big for the '
                     'dataset.')
                     raise ValueError('The given data is too big.')
             destination_dset[tuple(ind)] = data
@@ -726,4 +733,63 @@ class SdCube(object):
         if index_label in mapping[dimension_index]:
             return mapping[dimension_index].index(index_label)
         return -1
+        
+    def get_data(self, items={}):
+        return self.get_data_and_indices(items)[0]
 
+    def first_index_labels(self, dset, items):
+        ''' Get the 'first' point of a given dataset.
+        Return them as a list compatible with create_dataset.
+
+        '''
+        first_index_labels = {}
+        #mapping = self.get_mapping(dset)
+        try:
+            mapping = pickle.loads(str(dset.attrs['mapping']))
+        except AttributeError:
+            with h5py.File(self.filename,'r') as h5_file:
+                mapping = pickle.loads(str(h5_file[dset].attrs['mapping']))
+        #group_mapping = self.get_mapping(dset.parent)
+        group_mapping = self.mapping
+        for key, value in items.items():
+            mapping[group_mapping[key]] = [value]
+        reverse_grp_map = dict((v, k) for k, v in group_mapping.iteritems())
+        for key, value in mapping.items():
+            first_index_labels[reverse_grp_map[key]] = value[0]
+        return first_index_labels
+
+    def get_data_and_indices(self, items={}):
+        with h5py.File(self.filename,'r') as hdf5_file:
+            data = []
+            inds = []
+            first_inds = []
+
+            grp = hdf5_file[self.name]
+            #grp_map = self.get_mapping(grp)
+            for dataset in grp.values():
+                shape = dataset.shape
+                data.append(dataset[...])
+                inds.append([slice(None, None, None)] * len(shape))
+                first_inds.append(self.first_index_labels(dataset, items))
+                for key, value in items.iteritems():
+                    #inds[-1][grp_map[key]] = \
+                    #        self.index(grp_map[key], value, dataset)
+                    inds[-1][self.mapping[key]] = \
+                            self.index(self.mapping[key], value, dataset)
+
+            #prevent interation over something you delete stuff from
+            data2 = list(data) 
+            for i in xrange(len(data2) - 1, -1, -1):
+                if -1 in inds[i]:
+                    del data[i]
+                    inds.pop()
+                    del(first_inds[i])
+            return_data = []
+            for i, value in enumerate(data):
+                shape = list(value.shape)
+                for j, dim in enumerate(inds[i]):
+                    if type(dim) == int:
+                        shape[j] = 1
+                return_data.append(value[tuple(inds[i])].reshape(shape))
+            return return_data, first_inds
+        

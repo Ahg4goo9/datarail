@@ -21,7 +21,7 @@ class CollapseDimension(function.Function):
     '''
 
     '''
-    def __call__(self, input_cubes, output_cubes, params):
+    def __call__(self, input_cubes, output_cube_names, params):
         ''' Collapse one dimension of the input cube with a method given by
         params. Store the output cube in the correct hdf project.
 
@@ -47,8 +47,9 @@ class CollapseDimension(function.Function):
             elif value > collapse_dim:
                 out_mapping[key] = value - 1 # no gaps please 
 
-        logging.info('Creating new group: %s', output_cubes[0])
-        out_cube = cube.parent.create_group(output_cubes[0])
+
+        logging.info('Creating new group: %s', output_cube_names[0])
+        out_cube = cube.parent.create_group(output_cube_names[0])
         logging.debug('Copying attributes')
         for key in cube.attrs.keys():
             out_cube.attrs[key] = cube.attrs[key]

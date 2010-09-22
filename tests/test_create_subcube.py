@@ -16,8 +16,8 @@ def pytest_funcarg__hdf_project(request):
     two_d_name_1 = '2D_1'
 
     # Create dset 1
-    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_1)
-    sdcube1 = hdf.get_sdcube(filename, name)
+    name = hdf.add_sdcube(['x', 'y'], name=two_d_name_1)
+    sdcube1 = hdf.get_sdcube(name)
     sdcube1.create_dataset({'x':[d('1'), d('2'), d('3'), d('4')], 'y':['a',
         'b', 'c', 'd']})
     sdcube1.create_dataset({'x':[d('10')], 'y':['e']})
@@ -44,9 +44,10 @@ def test_create_subcube_range_and_non_range(hdf_project):
     hdf.add_function(my_create_subcube1)
 
     hdf.recompute()
-    cubes = hdf_project.get_data('subcube1', items={})
+    cube = hdf_project.get_sdcube('subcube1')
+    data = cube.get_data()
     expected = [array([[0, 4, 8, 12]]), array([[3, 7, 11, 15]])]
-    for array1, array2 in zip(cubes, expected):
+    for array1, array2 in zip(data, expected):
         assert all((x == y) for x, y in zip(array1.flat, array2.flat))
 
 def test_create_subcube_range_and_range(hdf_project):
@@ -57,9 +58,10 @@ def test_create_subcube_range_and_range(hdf_project):
     hdf.add_function(my_create_subcube2)
 
     hdf.recompute()
-    cubes = hdf_project.get_data('subcube2', items={})
+    cube = hdf_project.get_sdcube('subcube2')
+    data = cube.get_data()
     expected = [array([[4, 5, 6], [8, 9, 10], [12, 13, 14]])]
-    for array1, array2 in zip(cubes, expected):
+    for array1, array2 in zip(data, expected):
         assert all((x == y) for x, y in zip(array1.flat, array2.flat))
 
 def test_create_subecube_mixed_range_and_non_range(hdf_project):
@@ -71,8 +73,10 @@ def test_create_subecube_mixed_range_and_non_range(hdf_project):
     hdf.add_function(my_create_subcube3)
 
     hdf.recompute()
-    cubes = hdf_project.get_data('subcube3', items={})
+    cube = hdf_project.get_sdcube('subcube3')
+    data = cube.get_data()
+
     expected = [array([[4, 5, 6], [8, 9, 10], [12, 13, 14]]), array([[1]])]
-    for array1, array2 in zip(cubes, expected):
+    for array1, array2 in zip(data, expected):
         assert all((x == y) for x, y in zip(array1.flat, array2.flat))
 

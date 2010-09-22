@@ -16,8 +16,8 @@ def pytest_funcarg__hdf_project(request):
 
     # Create group 1
     two_d_name_1 = '2D_1'
-    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_1)
-    sdcube1 = hdf.get_sdcube(filename, name)
+    name = hdf.add_sdcube(['x', 'y'], name=two_d_name_1)
+    sdcube1 = hdf.get_sdcube(name)
     sdcube1.create_dataset({'x':[d('1'), d('2'), d('3'), d('4')],
             'y':['a', 'b', 'c', 'd']})
     sdcube1.create_dataset({'x':[d('10')], 'y':['e']})
@@ -37,8 +37,8 @@ def pytest_funcarg__hdf_project(request):
 
     # Create group 2
     two_d_name_2 = '2D_2'
-    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_2)
-    sdcube2 = hdf.get_sdcube(filename, name)
+    name = hdf.add_sdcube(['x', 'y'], name=two_d_name_2)
+    sdcube2 = hdf.get_sdcube(name)
     sdcube2.create_dataset({'x':[d('10')], 'y':['a', 'b', 'c', 'd']})
     sdcube2.create_dataset({'x':[d('1'), d('2'), d('3'), d('4')], 'y':['e']})
     sdcube2.set_data({'x':d('10'), 'y':'a'}, arange(4).reshape((1, 4)))
@@ -76,8 +76,8 @@ def test_different_dim_labels(hdf_project):
     '''
     # Create group 3
     two_d_name_3 = '2D_3'
-    name, filename = hdf_project.add_sdcube(['x', 'z'], name=two_d_name_3)
-    sdcube3 = hdf_project.get_sdcube(filename, name)
+    name = hdf_project.add_sdcube(['x', 'z'], name=two_d_name_3)
+    sdcube3 = hdf_project.get_sdcube(name)
     sdcube3.create_dataset({'x':[d('10')], 'z':['a', 'b', 'c', 'd']})
     my_join_functions = JoinCubes('Join', [], ['2D_1', '2D_2', '2D_3'],
             ['joined_cube'])
@@ -95,7 +95,7 @@ def test_two_2D_cubes(hdf_project):
     my_join_functions = JoinCubes('Join', [], ['2D_1', '2D_2'], ['joined_cube'])
     hdf_project.add_function(my_join_functions)
     hdf_project.recompute()
-    data = hdf_project.get_data('joined_cube')
+    data = hdf_project.get_sdcube('joined_cube').get_data()
     expected = [array([
         [ 0,  1,  2,  3],
         [ 4,  5,  6,  7],
@@ -121,8 +121,8 @@ def test_five_2D_cubes(hdf_project):
     # Create group 3 additional cubes
     for i in xrange(3, 6):
         cube_name = ''.join(('2D_', str(i)))
-        name, filename = hdf.add_sdcube(['x', 'y'], name=cube_name)
-        sdcube = hdf.get_sdcube(filename, name)
+        name = hdf.add_sdcube(['x', 'y'], name=cube_name)
+        sdcube = hdf.get_sdcube(name)
         sdcube.create_dataset({'x':[d(str(i*4))], 'y':['a', 'b', 'c', 'd']})
         sdcube.set_data({'x':d(str(i*4)), 'y':'a'}, 3 * i *
                 arange(4).reshape((1, 4)))
@@ -132,7 +132,7 @@ def test_five_2D_cubes(hdf_project):
     hdf_project.add_function(my_join_functions)
     hdf_project.recompute()
 
-    data = hdf_project.get_data('joined_cube')
+    data = hdf_project.get_sdcube('joined_cube').get_data()
     expected = [array([
         [ 0,  1,  2,  3],
         [ 4,  5,  6,  7],
@@ -155,8 +155,8 @@ def test_merge(hdf_project):
     hdf = hdf_project
     # Create group 3
     two_d_name_3 = '2D_3'
-    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_3)
-    sdcube3 = hdf.get_sdcube(filename, name)
+    name = hdf.add_sdcube(['x', 'y'], name=two_d_name_3)
+    sdcube3 = hdf.get_sdcube(name)
     sdcube3.create_dataset({'x':[d('1'), d('2'), d('3'), d('4')], 'y':['a',
         'b', 'c', 'd']})
     sdcube3.create_dataset({'x':[d('1')], 'y':['e']})
@@ -176,8 +176,8 @@ def test_merge(hdf_project):
 
     # Create dset 4
     two_d_name_4 = '2D_4'
-    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_4)
-    sdcube4 = hdf.get_sdcube(filename, name)
+    name = hdf.add_sdcube(['x', 'y'], name=two_d_name_4)
+    sdcube4 = hdf.get_sdcube(name)
     sdcube4.create_dataset({'x':[d('10')], 'y':['a', 'b', 'c', 'd']})
     sdcube4.create_dataset({'x':[d('2'), d('3'), d('4'), d('10')], 'y':['e']})
     sdcube4.set_data({'x':d('10'), 'y':'a'}, arange(4).reshape((1, 4)))
@@ -197,7 +197,7 @@ def test_merge(hdf_project):
     my_join_functions = JoinCubes('Join', [], ['2D_3', '2D_4'], ['joined_cube'])
     hdf.add_function(my_join_functions)
     hdf.recompute()
-    data = hdf.get_data('joined_cube')
+    data = hdf.get_sdcube('joined_cube').get_data()
     expected = [array([
         [0 ,  1,  2,  3, 1],
         [4 ,  5,  6,  7, 0],

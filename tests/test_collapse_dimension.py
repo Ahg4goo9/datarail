@@ -15,8 +15,8 @@ def pytest_funcarg__simple_hdf_project(request):
 
     # Create dset 1
     two_d_name_1 = '2D_1'
-    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_1)
-    sdcube1 = hdf.get_sdcube(filename, name)
+    name = hdf.add_sdcube(['x', 'y'], name=two_d_name_1)
+    sdcube1 = hdf.get_sdcube(name)
     sdcube1.create_dataset({'x':[d('1'), d('2'), d('3'), d('4')], 'y':['a',
         'b', 'c', 'd']})
     sdcube1.set_data({'x':d('1'), 'y':'a'}, arange(4*4).reshape((4, 4)))
@@ -45,8 +45,8 @@ def pytest_funcarg__hdf_project(request):
 
     # Create dset 1
     two_d_name_1 = '2D_1'
-    name, filename = hdf.add_sdcube(['x', 'y'], name=two_d_name_1)
-    sdcube1 = hdf.get_sdcube(filename, name)
+    name = hdf.add_sdcube(['x', 'y'], name=two_d_name_1)
+    sdcube1 = hdf.get_sdcube(name)
     sdcube1.create_dataset({'x':[d('1'), d('2'), d('3'), d('4')], 'y':['a',
         'b', 'c', 'd']})
     sdcube1.create_dataset({'x':[d('10')], 'y':['e']})
@@ -68,11 +68,13 @@ def pytest_funcarg__hdf_project(request):
 
 def test_average(simple_hdf_project):
     collapse_dim = 0
+    output_cube_names = ['collapsed_cube']
     my_collapse_functions = CollapseDimension('Collapse', [collapse_dim,
-        'average'], ['2D_1'], ['collapsed_cube'])
+        'average'], ['2D_1'], output_cube_names)
     simple_hdf_project.add_function(my_collapse_functions)
     simple_hdf_project.recompute()
-    data = simple_hdf_project.get_data('collapsed_cube')
+    outcube = simple_hdf_project.get_sdcube(output_cube_names[0])
+    data = outcube.get_data()
     
     #test the data
     expected = [array([[6, 7, 8, 9]])]
@@ -80,18 +82,20 @@ def test_average(simple_hdf_project):
         assert all((x == y) for x, y in zip(array1.flat, array2.flat))
 
     #test the attributes
-    cube_mapping = simple_hdf_project.get_mapping('collapsed_cube')
+    cube_mapping = outcube.mapping
     if not cube_mapping == {'y':0}:
         assert False
 
     
 def test_max(simple_hdf_project):
     collapse_dim = 0
+    output_cube_names = ['collapsed_cube']
     my_collapse_functions = CollapseDimension('Collapse', [collapse_dim,
-        'max'], ['2D_1'], ['collapsed_cube'])
+        'max'], ['2D_1'], output_cube_names)
     simple_hdf_project.add_function(my_collapse_functions)
     simple_hdf_project.recompute()
-    data = simple_hdf_project.get_data('collapsed_cube')
+    outcube = simple_hdf_project.get_sdcube(output_cube_names[0])
+    data = outcube.get_data()
     
     #test the data
     expected = [array([[12, 13, 14, 15]])]
@@ -99,18 +103,20 @@ def test_max(simple_hdf_project):
         assert all((x == y) for x, y in zip(array1.flat, array2.flat))
 
     #test the attributes
-    cube_mapping = simple_hdf_project.get_mapping('collapsed_cube')
+    cube_mapping = outcube.mapping
     if not cube_mapping == {'y':0}:
         assert False
 
     
 def test_min(simple_hdf_project):
     collapse_dim = 1
+    output_cube_names = ['collapsed_cube']
     my_collapse_functions = CollapseDimension('Collapse', [collapse_dim,
-        'min'], ['2D_1'], ['collapsed_cube'])
+        'min'], ['2D_1'], output_cube_names)
     simple_hdf_project.add_function(my_collapse_functions)
     simple_hdf_project.recompute()
-    data = simple_hdf_project.get_data('collapsed_cube')
+    outcube = simple_hdf_project.get_sdcube(output_cube_names[0])
+    data = outcube.get_data()
     
     #test the data
     expected = [array([[0, 4, 8, 12]])]
@@ -118,17 +124,20 @@ def test_min(simple_hdf_project):
         assert all((x == y) for x, y in zip(array1.flat, array2.flat))
 
     #test the attributes
-    cube_mapping = simple_hdf_project.get_mapping('collapsed_cube')
+    cube_mapping = outcube.mapping
     if not cube_mapping == {'x':0}:
         assert False
 
 def test_test(hdf_project):
+    input_cube_names = ['2D_1']
+    output_cube_names = ['collapsed_cube']
     collapse_dim = 1
     my_collapse_functions = CollapseDimension('Collapse', [collapse_dim,
-        'min'], ['2D_1'], ['collapsed_cube'])
+        'min'], input_cube_names, output_cube_names)
     hdf_project.add_function(my_collapse_functions)
     hdf_project.recompute()
-    data = hdf_project.get_data('collapsed_cube')
+    outcube = hdf_project.get_sdcube(output_cube_names[0])
+    data = outcube.get_data()
     
     #test the data
     expected = [array([[0, 4, 8, 12]]), array([[0]])]
@@ -136,7 +145,7 @@ def test_test(hdf_project):
         assert all((x == y) for x, y in zip(array1.flat, array2.flat))
 
     #test the attributes
-    cube_mapping = hdf_project.get_mapping('collapsed_cube')
+    cube_mapping = outcube.mapping
     if not cube_mapping == {'x':0}:
         assert False
 
