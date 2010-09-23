@@ -1,5 +1,6 @@
 import os
 from decimal import Decimal as d
+from numpy import arange
 from hdf import SdCube
 
 def pytest_funcarg__simple_sdcube(request):
@@ -51,6 +52,17 @@ def test_create_dataset(simple_sdcube):
             {'x':[d('1'), d('2'), d('7.0')],
             'y':['a', 'b', 'c'],
             'z':[d('1.0'), d('2.0'), d('3.0')]})
+
+def test_set_get_data(simple_sdcube):
+    simple_sdcube.create_dataset(
+        {'x':[d('1'), d('2'), d('7.0')],
+        'y':['a', 'b', 'c'],
+        'z':[d('1.0'), d('2.0'), d('3.0')]})
+    data = arange(3*3*3).reshape((3,3,3))
+    simple_sdcube.set_data({'x':d('1'), 'y':'a', 'z':d('1.0')}, data)
+    stored_data = simple_sdcube.get_data()[0].flat
+    assert all(x == y for x, y in zip(data.flat, stored_data))
+            
 
 def test_loading(simple_sdcube):
     cube = SdCube.load(simple_sdcube.filename, simple_sdcube.name)

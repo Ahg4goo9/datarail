@@ -101,24 +101,20 @@ class Hdf5:
             sdcubes = load_attribute(h5_file, 'sdcubes')
             sdcubes[name] = filename
             store_attribute(h5_file, 'sdcubes', sdcubes)
+            store_attribute(h5_file[name], 'dirty', True)
         return name
 
     def delete_cube(self, group_name):
         logging.info('Try to delete: %s' % group_name)
-        with h5py.File(self.filename, 'r') as h5_file:
+        with h5py.File(self.filename, 'a') as h5_file:
             try:
                 sdcubes = load_attribute(h5_file, 'sdcubes')
                 del sdcubes[group_name]
-#TODO delete the file if necessary
                 del h5_file[group_name]
-                # delete the cube if it is empty (and not the project file)
-                if not h5_file.keys() and \
-                    not 'functions' in h5_file.attrs.keys():
-                        os.remove(h5_file)
                 logging.info('Deleted: %s' % group_name)
-            except KeyError:
+            except KeyError: #change the error text and log
                 logging.error('Unable to delete the group %s' % group_name)
-                raise ValueError('Unable to delete the group %s' % group_name)
+                raise KeyError('Unable to delete the group %s' % group_name)
 
     """def create_dataset(self, dset_name, *dimensions):
         ''' Create the mapping and pickle it. 
@@ -416,13 +412,15 @@ class Hdf5:
             input_cubes = []
             for input_cube_name in func.input_cube_names:
                 input_cubes.append(h5_file[input_cube_name])
-            output_cubes = []
             logging.info('Executing the function: %s' % func)
             func.__call__(input_cubes, func.output_cube_names,
                     func.params)
-            for output_cube_name in output_cubes:
+            sdcubes = load_attribute(h5_file, 'sdcubes')
+            for output_cube_name in func.output_cube_names:
+                sdcubes[output_cube_name] = self.filename
                 logging.info('Set the dirty status for the output datasets')
                 h5_file[output_cube_name].attrs['dirty'] = True
+            store_attribute(h5_file, 'sdcubes', sdcubes)
 
     def recompute(self):
         ''' Look for all functions with dirty(changed) datasets.
@@ -444,66 +442,8 @@ class Hdf5:
             for func in dirty_funcs:
                 for dset in func.input_cube_names:
                     hdf5_file[dset].attrs['dirty'] = False
-                sdcubes = load_attribute(hdf5_file, 'sdcubes')
                 for dset in func.output_cube_names:
-                    sdcubes[dset] = self.filename
                     hdf5_file[dset].attrs['dirty'] = False
-                store_attribute(hdf5_file, 'sdcubes', sdcubes)
-
-if __name__ == '__main__':
-    '''from numpy import random, arange
-    from decimal import Decimal as d
-    os.remove('project.hdf5')
-    hdf = Hdf5('project')
-    group_name = 'Project Data'
-    hdf.create_dataset(group_name, ['first', [d('1'), d('2'), d('7.0')]],
-            ['second', ['a', 'b', 'c']], ['test', [d('1.0'), d('2.0'),
-                d('3.0')]], ['another', [d('1'), d('2.0'), '3', d('4')]])
-    hdf.create_dataset(group_name, ['first', [d('10'), d('20'), d('70.0')]],
-            ['second', ['a', 'b', 'c']], ['test',[d('1.0'), d('2.0'),
-                d('3.0')]], ['another', [d('1'), d('2.0'), '3', d('4')]])
-    hdf.create_dataset(group_name, ['first', [d('8')]], ['second', ['a', 'b',
-        'c']], ['test', [d('1.0')]], ['another', [d('1'), d('2.0'), '3',
-            d('4')]])
-    with h5py.File(hdf.filename) as hdf5_file:
-        group = hdf5_file[group_name]
-        hdf.set_dataset(group_name, {'first':d('1'), 'second':'a',
-            'test':d('1.0'), 'another':1}, 2 + 2 *
-            random.random(hdf5_file[group_name]['0'].shape))
-        length = 1
-        for dim in group['0'].shape:
-            length = length * dim
-        hdf.set_dataset(group_name, {'first':d('1'), 'second':'a',
-            'test':d('1.0'), 'another':1},
-            arange(length).reshape(group['0'].shape))
-        hdf5_file.copy(group_name, 'ds')
-    hdf.set_dataset('ds', {'first':d('1'), 'second':'a', 'test':d('1.0'),
-        'another':1}, arange(length).reshape((d('3'),d('3'),d('3'),4)))
-    hdf.set_dataset(group_name, {'first':d('1'), 'second':'a', 'test':d('1.0'),
-        'another':1}, arange(length).reshape((d('3'),d('3'),d('3'),4)))
-    hdf.set_dataset(group_name, {'first':d('1'), 'second':'b', 'test':d('1.0'),
-        'another':1}, 10*arange(2*1*2*4).reshape((d('2'), d('1'), d('2'), 4)))
-    hdf.set_dataset(group_name, {'first':d('10'), 'second':'b',
-        'test':d('1.0'),'another':1},
-        10*arange(2*1*2*4).reshape((2, 1, 2, 4)))
-    print hdf.get_data(group_name, {'test':d('2.0'), 'another':1})
-    print hdf.get_data(group_name, {'first':d('10')})
-    
-    for data_set in hdf.get_data_fill_with_nan(group_name, {}):
-        print data_set
-    print '-' * 50
-    for data_set in hdf.get_data_fill_with_nan(group_name, {'first':d('10')}):
-        print data_set
-    print '-' * 50
-    two_d_name = '2d'
-    hdf.create_dataset(two_d_name, ['x', [d('1'), d('2'), d('3'), d('4')]],
-            ['y', [d('1'), d('2'), d('3'), d('4')]])
-    hdf.create_dataset(two_d_name, ['x', [d('10')]], ['y', [d('10')]])
-    hdf.set_dataset(two_d_name, {'x':d('1'), 'y':d('1')},
-            5*arange(4*4).reshape((4,4)))
-    hdf.set_dataset(two_d_name, {'x':d('10'), 'y':d('10')},
-            5*arange(1*1).reshape((1,1)))
-    '''
 
 class SdCube(object):
     ''' A SdCube is a h5py group with a mapping attached
@@ -552,7 +492,7 @@ class SdCube(object):
                 mapping = load_mapping(group)
             except KeyError:
                 logging.error('The file seems to be invalid.')
-                raise ValueError('The file seems to be invalid.')
+                raise KeyError('The file seems to be invalid.')
         return(cls(group_name, filename, mapping, units))
 
     @property
