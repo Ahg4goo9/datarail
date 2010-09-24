@@ -722,7 +722,7 @@ class SdCube(object):
             for i in xrange(len(data2) - 1, -1, -1):
                 if -1 in inds[i]:
                     del data[i]
-                    inds.pop()
+                    del inds[i]
                     del(first_inds[i])
             return_data = []
             for i, value in enumerate(data):
