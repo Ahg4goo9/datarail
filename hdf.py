@@ -10,9 +10,11 @@ import h5py
 import cPickle as pickle
 import os
 import logging
-#from numpy import nan, empty
 
 def is_sequential(elements):
+    ''' Return whether a list or a tuple is sequential
+
+    '''
     for i, dim_index in enumerate(sorted(elements)):
         if i != dim_index:
             return False
@@ -72,7 +74,6 @@ class Hdf5:
             sdcubes = load_attribute(h5_file, 'sdcubes')
         return SdCube.load(sdcubes[name], name)
     
-    #def add_sdcube(self, mapping, name=None, filename=None):
     def add_sdcube(self, mapping, name=None):
         ''' Add an sd cube to the project. Return the created name and the
         filename.
@@ -86,13 +87,9 @@ class Hdf5:
             for key in sdcubes:
                 if name.lower() == key:
                     raise Warning('%s looks like %s!' % (name, key))
-                    raise KeyError('%s looks like %s!' % (name, key))
         if not name:
             name = str(len(sdcubes)) #name will be a number
         
-        #TODO: until we decide if filenames are needed
-        #if not filename:
-        #    filename = self.filename
         filename = self.filename
 
 
@@ -105,6 +102,9 @@ class Hdf5:
         return name
 
     def delete_cube(self, group_name):
+        ''' Delete a sdcube from the project
+
+        '''
         logging.info('Try to delete: %s' % group_name)
         with h5py.File(self.filename, 'a') as h5_file:
             try:
@@ -115,260 +115,6 @@ class Hdf5:
             except KeyError: #change the error text and log
                 logging.error('Unable to delete the group %s' % group_name)
                 raise KeyError('Unable to delete the group %s' % group_name)
-
-    """def create_dataset(self, dset_name, *dimensions):
-        ''' Create the mapping and pickle it. 
-        Load the group named like the dataset or create it if it is not
-        present.
-
-        '''
-        if not dimensions:
-            logging.error('Dimension must not be empty')
-            raise ValueError('Dimension must not be empty')
-        group_mapping = dict((k, i) for i, (k, v) in enumerate(dimensions))
-        dset_mapping = dict([i, v] for i, (k, v) in enumerate(dimensions))
-        dims = [len(value) for key, value in dimensions]
-
-        with h5py.File(self.filename, 'a') as h5_file:
-            logging.info('Load group: %s' % dset_name)
-            try:
-                grp = h5_file[dset_name]
-                if not group_mapping == self.get_mapping(grp):
-                    logging.error('The dimensions of the new and the old'
-                            'dataset must be the same')
-                    raise ValueError('The dimensions of the new and the old'
-                            'dataset must be the same')
-            except KeyError:
-                logging.info('Failed to load group: %s' % dset_name)
-                logging.info('Creating group: %s' % dset_name)
-                grp = h5_file.create_group(dset_name)
-
-            # check if there already is a dataset and if the number 
-            # of dimensions is equal to the new one '''
-            if grp.keys():
-                if not len(grp[grp.keys()[0]].shape) == len(dims):
-                    logging.error('The new dataset has the wrong number of'
-                            ' dimensions: %s' % self.filename)
-                    raise ValueError('The dataset has the wrong number of' 
-                            ' dimensions')
-                for key in grp.keys():
-                    mapping = self.get_mapping(grp[key])
-                    share_points = True
-                    for key in mapping:
-                        if not [x for x in mapping[key] if x in
-                                dset_mapping[key]]:
-                            share_points = False
-                if share_points:
-                    logging.error('The new dataset shares some datapoints '
-                             ' with at least one existing dataset. Aborting'
-                             ' insert.')
-                    raise ValueError('The new dataset shares some datapoints'
-                            ' with an existing dataset')
-                    
-            logging.info('Creating dataset: ' + dset_name)
-            dset = grp.create_dataset(str(len(grp.keys())), dims)
-            dset.attrs['mapping'] = pickle.dumps(dset_mapping)
-            grp.attrs['dirty'] = True
-            grp.attrs['mapping'] = pickle.dumps(group_mapping)
-            logging.info('Dataset created.')
-   
-    def __get_dataset_with_indices(self, grp, indices, data):
-        ''' Find the dataset within the group grp that contains the indices.
-        '''
-
-        group_mapping = pickle.loads(grp.attrs['mapping'])
-        ind = [slice(0, dim_length, 1) for dim_length in data.shape]
-        destination_dset = None
-        for dset in grp.values():
-            dataset_valid = True
-            for key, value in indices.iteritems():
-                index = self.index(group_mapping[key], value, dset)
-                if index == -1:
-                    dataset_valid = False
-                    break 
-                ind[group_mapping[key]] = slice(index, index +
-                        data.shape[group_mapping[key]], 1)
-            if not dataset_valid:
-                continue 
-            destination_dset = dset
-            break #dataset found
-        return destination_dset, ind
-
-
-    def set_dataset(self, grp_name, indices, data):
-        ''' Search for the right cube in the group and check if the
-        data fits into the cube at the given coordinates.
-        Set the data for that given cube.
-
-        '''
-        logging.info('Setting data in: ' + grp_name)
-
-        with h5py.File(self.filename) as h5_file:
-            grp = h5_file[grp_name]
-            group_mapping = pickle.loads(grp.attrs['mapping'])
-            if not len(indices) == len(group_mapping.keys()):
-                logging.error('Please specify a single point')
-                raise ValueError('Please specify a single point')
-
-            if not len(indices) == len(data.shape):
-                logging.error('data should have as many dimensions as the'
-                        'dataset')
-                raise ValueError('data should have as many dimensions as the'
-                        'dataset')
-
-            for key in indices.keys():
-                if not key in group_mapping.keys():
-                    logging.error('Index not in mapping.')
-                    raise ValueError('Index not in mapping.')
-            
-            destination_dset, ind = self.__get_dataset_with_indices(grp,
-                    indices, data)
-            if not destination_dset:
-                logging.error('No valid dataset found.')
-                raise ValueError('No valid dataset found.')
-
-            for dim_index, dim_length in enumerate(data.shape):
-                if dim_length > destination_dset.shape[dim_index]:
-                    logging.error('The given data is too big for the'
-                    'dataset.')
-                    raise ValueError('The given data is too big.')
-            destination_dset[tuple(ind)] = data
-            grp.attrs['dirty'] = True
-            logging.info('Data set.')
-    
-    def index(self, dimension_index, index_label, dset):
-        ''' Returns the mapped index of the index_label within the hdf 
-        data cube and the index of the value within that.
-        
-        '''
-        mapping = pickle.loads(str(dset.attrs['mapping']))
-        if index_label in mapping[dimension_index]:
-            return mapping[dimension_index].index(index_label)
-        return -1
-
-    def get_mapping(self, h5_element):
-        ''' Returns the mapping of the element
-
-        '''
-        try:
-            return pickle.loads(str(h5_element.attrs['mapping']))
-        except AttributeError:
-            with h5py.File(self.filename,'r') as h5_file:
-                return pickle.loads(str(h5_file[h5_element].attrs['mapping']))
-
-
-    def get_all_possible_indices(self, group_name):
-        '''Get all indices from all different datasets within the group.
-        Return them as a list compatible with create_dataset.
-
-        '''
-        with h5py.File(self.filename,'r') as h5_file:
-            grp = h5_file[group_name]
-            grp_mapping = self.get_mapping(grp)
-            indices = dict.fromkeys(grp_mapping.values())
-            for dset in grp.values():
-                mapping = self.get_mapping(dset)
-                for index, values in mapping.items():
-                    for value in values:
-                        try:
-                            indices[index].index(value)
-                        except ValueError:
-                            indices[index].append(value)
-                        except AttributeError:
-                            indices[index] = [value]
-
-        reverse_grp_map = dict((v, k) for k, v in grp_mapping.iteritems())
-        indices_list = []
-        for i in xrange(len(indices.keys())):
-            indices_list.append([reverse_grp_map[i], indices[i]])
-        return indices_list 
-    
-    def first_index_labels(self, dset, items):
-        ''' Get the 'first' point of a given dataset.
-        Return them as a list compatible with create_dataset.
-
-        '''
-        first_index_labels = {}
-        mapping = self.get_mapping(dset)
-        group_mapping = self.get_mapping(dset.parent)
-        for key, value in items.items():
-            mapping[group_mapping[key]] = [value]
-        reverse_grp_map = dict((v, k) for k, v in group_mapping.iteritems())
-        for key, value in mapping.items():
-            first_index_labels[reverse_grp_map[key]] = value[0]
-        return first_index_labels
-
-   
-    def get_data_fill_with_nan(self, group_name, items):
-        ''' Create one data_set out of the multiple data_sets get_data
-        returns. Fill all gaps with NaNs.
-
-        '''
-
-        indices = self.get_all_possible_indices(group_name)
-        for i, index in enumerate(indices):
-            index_label = index[0]
-            if index_label in items:
-                indices[i] = [index_label, [items[index_label]]]
-        start_point = dict(([k, v[0]]) for (k, v) in indices)
-        shape = tuple(len(v) for (k, v) in indices)
-
-        data, inds = self.get_data_and_indices(group_name, items)
-        tmp_name = group_name + '.tmp'
-        self.create_dataset(tmp_name, *indices)
-        nan_array = empty(shape)
-        nan_array[:] = nan
-        self.set_dataset(tmp_name, start_point, nan_array)
-        for i in xrange(len(inds)):
-            self.set_dataset(tmp_name, inds[i], data[i])
-        ret_data = self.get_data(tmp_name, items)
-        self.delete_cube(tmp_name)
-        return ret_data
-    
-    def get_data(self, group_name, items = {}):
-        ''' Get the data for the group and the specfied item.
-        The data is stored in a list of numpy ndarrays.
-
-        '''
-        return self.get_data_and_indices(group_name, items)[0]
-
-    def get_data_and_indices(self, group_name, items):
-        ''' Gathers and return the data of the group.
-        The data is stored in a list of numpy ndarrays.
-
-        '''
-        with h5py.File(self.filename,'r') as hdf5_file:
-            data = []
-            inds = []
-            first_inds = []
-
-            grp = hdf5_file[group_name]
-            grp_map = self.get_mapping(grp)
-            for dataset in grp.values():
-                shape = dataset.shape
-                data.append(dataset[...])
-                inds.append([slice(None, None, None)] * len(shape))
-                first_inds.append(self.first_index_labels(dataset, items))
-                for key, value in items.iteritems():
-                    inds[-1][grp_map[key]] = \
-                            self.index(grp_map[key], value, dataset)
-
-            #prevent interation over something you delete stuff from
-            data2 = list(data) 
-            for i in xrange(len(data2) - 1, -1, -1):
-                if -1 in inds[i]:
-                    del data[i]
-                    inds.pop()
-                    del(first_inds[i])
-            return_data = []
-            for i, value in enumerate(data):
-                shape = list(value.shape)
-                for j, dim in enumerate(inds[i]):
-                    if type(dim) == int:
-                        shape[j] = 1
-                return_data.append(value[tuple(inds[i])].reshape(shape))
-            return return_data, first_inds
-"""
     def add_function(self, func):
         ''' Add a function to the project
 
@@ -675,6 +421,9 @@ class SdCube(object):
         return -1
         
     def get_data(self, items={}):
+        ''' Get the data that matches the items.
+        '''
+        # Do not return the first indices
         return self.get_data_and_indices(items)[0]
 
     def first_index_labels(self, dset, items):
@@ -699,31 +448,34 @@ class SdCube(object):
         return first_index_labels
 
     def get_data_and_indices(self, items={}):
+        ''' Get all datasets.
+        Exclude those that don't match items.
+        Return the remaining datasets and their first indices.
+
+        '''
         with h5py.File(self.filename,'r') as hdf5_file:
             data = []
             inds = []
             first_inds = []
 
             grp = hdf5_file[self.name]
-            #grp_map = self.get_mapping(grp)
             for dataset in grp.values():
                 shape = dataset.shape
                 data.append(dataset[...])
                 inds.append([slice(None, None, None)] * len(shape))
                 first_inds.append(self.first_index_labels(dataset, items))
                 for key, value in items.iteritems():
-                    #inds[-1][grp_map[key]] = \
-                    #        self.index(grp_map[key], value, dataset)
                     inds[-1][self.mapping[key]] = \
                             self.index(self.mapping[key], value, dataset)
 
-            #prevent interation over something you delete stuff from
+            #prevent interation over datasets that do not match items
             data2 = list(data) 
             for i in xrange(len(data2) - 1, -1, -1):
                 if -1 in inds[i]:
                     del data[i]
                     del inds[i]
                     del(first_inds[i])
+
             return_data = []
             for i, value in enumerate(data):
                 shape = list(value.shape)
@@ -733,3 +485,32 @@ class SdCube(object):
                 return_data.append(value[tuple(inds[i])].reshape(shape))
             return return_data, first_inds
         
+    """
+    
+    def get_data_fill_with_nan(self, group_name, items):
+        ''' Create one data_set out of the multiple data_sets get_data
+        returns. Fill all gaps with NaNs.
+
+        '''
+
+        indices = self.get_all_possible_indices(group_name)
+        for i, index in enumerate(indices):
+            index_label = index[0]
+            if index_label in items:
+                indices[i] = [index_label, [items[index_label]]]
+        start_point = dict(([k, v[0]]) for (k, v) in indices)
+        shape = tuple(len(v) for (k, v) in indices)
+
+        data, inds = self.get_data_and_indices(group_name, items)
+        tmp_name = group_name + '.tmp'
+        self.create_dataset(tmp_name, *indices)
+        nan_array = empty(shape)
+        nan_array[:] = nan
+        self.set_dataset(tmp_name, start_point, nan_array)
+        for i in xrange(len(inds)):
+            self.set_dataset(tmp_name, inds[i], data[i])
+        ret_data = self.get_data(tmp_name, items)
+        self.delete_cube(tmp_name)
+        return ret_data
+    """
+
