@@ -432,19 +432,17 @@ class SdCube(object):
 
         '''
         first_index_labels = {}
-        #mapping = self.get_mapping(dset)
         try:
             mapping = pickle.loads(str(dset.attrs['mapping']))
         except AttributeError:
             with h5py.File(self.filename,'r') as h5_file:
                 mapping = pickle.loads(str(h5_file[dset].attrs['mapping']))
-        #group_mapping = self.get_mapping(dset.parent)
         group_mapping = self.mapping
-        for key, value in items.items():
-            mapping[group_mapping[key]] = [value]
+        for dim_label, index_label in items.items():
+            mapping[group_mapping[dim_label]] = [index_label]
         reverse_grp_map = dict((v, k) for k, v in group_mapping.iteritems())
-        for key, value in mapping.items():
-            first_index_labels[reverse_grp_map[key]] = value[0]
+        for index, value in mapping.items():
+            first_index_labels[reverse_grp_map[index]] = value[0]
         return first_index_labels
 
     def get_data_and_indices(self, items={}):
@@ -464,9 +462,10 @@ class SdCube(object):
                 data.append(dataset[...])
                 inds.append([slice(None, None, None)] * len(shape))
                 first_inds.append(self.first_index_labels(dataset, items))
-                for key, value in items.iteritems():
-                    inds[-1][self.mapping[key]] = \
-                            self.index(self.mapping[key], value, dataset)
+                for dim_label, index_label in items.iteritems():
+                    inds[-1][self.mapping[dim_label]] = \
+                            self.index(self.mapping[dim_label], index_label,
+                                    dataset)
 
             #prevent interation over datasets that do not match items
             data2 = list(data) 
