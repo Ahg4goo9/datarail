@@ -46,6 +46,7 @@ def pytest_funcarg__filled_complicated_sdcube(request):
             arange(3*2).reshape((3,2)))
 
     # And this is what it looks like
+    # Note: the datasets are seperated
     #          y
     #     a  b  c  d  e  f #
     #----------------------#
@@ -140,6 +141,7 @@ def test_get_data_complex(filled_complicated_sdcube):
     cube = filled_complicated_sdcube
     
     # And this is what it looks like
+    # Note: the datasets are seperated
     #          y
     #     a  b  c  d  e  f #
     #----------------------#

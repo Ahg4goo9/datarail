@@ -485,7 +485,7 @@ class SdCube(object):
             return return_data, first_inds
         
     """
-    
+    #TODO: make me work for sdcubes. It used to work within hdf
     def get_data_fill_with_nan(self, group_name, items):
         ''' Create one data_set out of the multiple data_sets get_data
         returns. Fill all gaps with NaNs.
